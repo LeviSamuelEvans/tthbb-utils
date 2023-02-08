@@ -3,10 +3,9 @@
     Python Script to run Condor batch jobs for different steps in TRExFitter 06.01.23 LE v1.0
 
     Need to optimise these features :
-        1. The precedure for making the rror and output directories inside the script 
-        2. The number fo submit files made through this, could potentially delete afterwards 
-        3. Make it such that the script submit jobs in one large batch, instead of separately ( this will be a fair amount of work to do this )
-        4. Send a notification to the user when the jobs ahve finished | or just send the error notification if jobs do not run for any reason 
+        1. The precedure for making the error and output directories inside the script ( DONE 08.02.23 )
+        2. Have one submit file for all jobs and append the job submissions to it. 
+        4. Send a notification to the user when the jobs have finished finished | or just send the error notification if jobs do not run for any reason 
 
 '''
 
@@ -33,9 +32,9 @@ class TRExSubmit :
                 reg = lineStrip.split(":")[1].strip()
                 regList.append(reg)
         return regList
-        print (reglist)
-    
-    # Function to facilitate the submission of jobs for each region
+
+
+    #Function to facilitate the submission of jobs for each region
     def runSubmit(self):
         for config in self.listOfConfigs:
             if self.runRegsSep == True: # Parallelise the job submission by region.
@@ -45,22 +44,22 @@ class TRExSubmit :
                 self.jobSubmit(config, self.pathToExe, self.workDir, self.actions, extraOpts = self.extraOpts)
     
     # Function to write the submission files to run in the Condor batch nodes 
-    def writeSubmit(self, name, config, pathToExe, workDir, actions, region = '', extraOpts = ()):
-        configName = config.split('/')[-1].split('.')[0]
-        regOpt = ('Regions='+region+'' if region != '' else '')
-        opts = ":".join((regOpt,)+extraOpts)
-        
-        with open(name, "w") as submit_file:
-            submit_file.write("#!/bin/bash\n")
-            #submit_file.write("JOBDIR="+workDir+configName+"/"+region+"\n")
-            #submit_file.write("mkdir -p $JOBDIR && cd $JOBDIR\n")
-            submit_file.write("source /afs/cern.ch/user/l/leevans/TRExFitter/setup.sh\n")
-            #submit_file.write("source /cvmfs/sft.cern.ch/lcg/releases/LCG_94/GSL/2.5/x86_64-slc6-gcc62-opt/GSL-env.sh")
-            #submit_file.write("export LD_LIBRARY_PATH=/cvmfs/sft.cern.ch/lcg/releases/LCG_94/GSL/2.5/x86_64-slc6-gcc62-opt/lib:$LD_LIBRARY_PATH\n")
-            submit_file.write(pathToExe+" "+actions+" "+config+"  \'"+opts+"\'\n")
+    def writeSubmit(self, name, configList, pathToExe, workDir, actions, regList = [], extraOpts = ()):
+        submit_file = open(name, "w")
+        submit_file.write("#!/bin/bash\n")
+        submit_file.write("source /afs/cern.ch/user/l/leevans/TRExFitter/setup.sh\n")
+
+        for i, config in enumerate(configList):
+            configName = config.split('/')[-1].split('.')[0]
+            region = regList[i] if len(regList) == len(configList) else ''
+            regOpt = ('Regions=' + region + '' if region != '' else '')
+            opts = ":".join((regOpt,) + extraOpts)
+
+            submit_file.write(pathToExe + " " + actions + " " + config + "  \'" + opts + "\'\n")
             submit_file.write("echo $PWD \n")
             submit_file.write("ls -l \n")
-            #submit_file.write("rm -rf $JOBDIR\n")
+
+        submit_file.close()
     
     '''
 
@@ -79,13 +78,16 @@ class TRExSubmit :
 
     '''
 
-    # Function to write 
-    def writehtcSubmit(self, name, exe, logs, workdir, args = "NONE", RunTime = "21600", univ = "vanilla", cpus = "4", out="NONE", err="NONE"):
+
+    def writehtcSubmit(self, name, exe, logs, workdir, err, args = "NONE", RunTime = "21600", univ = "vanilla", cpus = "4", out="NONE"):
+        workdir = os.getcwd()
         '''
         File that writes a HTCondor submission script and returns it              
         '''
-        workDir = workdir+"/submit_Feb23_Histograms/HTCondor/"
+        workDir = workdir+"/submit_Feb23_Histograms/Condor/"
+        
         self.mkdir(workDir)
+        
         with open(workDir+name+".sub", "w") as submit_file:
             submit_file.write("executable = " + exe + "\n")
             if (args == "NONE"):
@@ -96,10 +98,10 @@ class TRExSubmit :
                 submit_file.write("output = output_Feb23_HIstograms/"+name+"$(ClusterId)$(ProcId).out\n")
             else:
                 submit_file.write("output = " + out + "\n")
-            if (err == "NONE"):
-                submit_file.write("error = error_Feb23_Histograms/"+name+"$(ClusterId)$(ProcId).err\n")
-            else:
-                submit_file.write("error = " + err + "\n")
+            # if (err == "NONE"):
+            #     submit_file.write("error = error_Feb23_Histograms/"+name+"$(ClusterId)$(ProcId).err\n")
+            # else:
+            submit_file.write("error = " + err + "\n")
             submit_file.write("log = " + logs + "\n")
             submit_file.write("requirements = (OpSysAndVer =?= \"CentOS7\" ) \n")
             submit_file.write("universe = " + univ + "\n")
@@ -120,12 +122,19 @@ class TRExSubmit :
             submitName = configName+'_'+region
         else:
             submitName = configName
+        
+        
+            
         logDir = workDir+'/logs/'+configName
         logFile = logDir+'/'+submitName+'.log'
+        errorDir = workDir+'/error/'+configName
+        errorFile = errorDir+'/'+submitName+'.err'
+        outputDir = workDir+'/output/'+configName
+        outputFile = outputDir+'/'+submitName+'.out'
         #args = actions+' '+config+' \''+opts+'\''
 
         pathToShScripts = workDir+"/submit_Feb23_Histograms/bashScripts/" # Path to executable for HTCondor
-        pathToSubFile = workDir+"/submit_Feb23_Histograms/HTCondor/" # Path to HTCondor script
+        pathToSubFile = workDir+"/submit_Feb23_Histograms/Condor/" # Path to HTCondor script
         
         self.mkdir(pathToShScripts)
 
@@ -134,14 +143,16 @@ class TRExSubmit :
         self.writehtcSubmit(submitName,
                   pathToShScripts+submitName+".sh",
                   logFile,
+                  errorFile,
+                  #outputFile,
                   workDir)
 
         condorSub = 'condor_submit '+pathToSubFile+submitName+".sub"
-        print(pathToSubFile)
-        print(submitName)
 
 
         self.mkdir(logDir)
+        self.mkdir(errorDir)
+        self.mkdir(outputDir)
 
         
         os.system(condorSub)
@@ -152,10 +163,11 @@ if __name__ == "__main__":
     #configsDir = '/eos/user/l/leevans/Fit_Studies_ttHbbLegacy/configs_STXS_sensitivity_1l/'
     #configsDir = '/eos/user/l/leevans/Fit_Studies_ttHbbLegacy/configs_TP_Jan23/'
     #configsDir  = '/eos/user/l/leevans/Fit_Studies_ttHbbLegacy/configs_PS_Channel_decorr_Jan23/'
-    configsDir  =  '/eos/user/l/leevans/Fit_Studies_ttHbbLegacy/configs_TP_Feb23_newBaseline/'
+    configsDir  =  '/eos/user/l/leevans/Fit_Studies_ttHbbLegacy/'
     # You can add as many configs as you want, will run jobs for all of them. Make sure to put the output directory in the TRExFitter configs!
     listOfConfigs = [
-        #configsDir + 'trial_config.yaml',
+        configsDir + 'dev_config.yaml',
+        configsDir + 'dev2_config.yaml',
         #configsDir + 'config_2l_Baseline_Full_Jan23.yaml',
         #configsDir + 'config_2l_Compare_Baseline_Comb_ttgeq1b_scale_var_only_Jan23.yaml',
         #configsDir + 'config_2l_Full_Study_ttgeq1b_combined_sys_Jan23.yaml ',
@@ -193,8 +205,8 @@ if __name__ == "__main__":
         #configsDir +  'config_2l_ttXS_decorr_sample_Jan23_BONLY.yaml',
         #configsDir + 'config_1l_ttXS_NoHTReweight_Jan23_BONLY.yaml',
         #configsDir + 'config_2l_ttXS_NoHTReweight_Jan23_BONLY.yaml',
-        configsDir  + 'config_1l_baseline_BONLY.yaml',
-        configsDir  + 'config_2l_baseline_BONLY.yaml',
+        #configsDir  + 'config_1l_baseline_BONLY.yaml',
+        #configsDir  + 'config_2l_baseline_BONLY.yaml',
 
             ]
         
@@ -206,8 +218,7 @@ if __name__ == "__main__":
     exePath = '/afs/cern.ch/user/l/leevans/TRExFitter/build/bin/trex-fitter'
 
     # working directory where output will be copied to
-    workingDir = os.getcwd()
-    
+    workingDir = os.getcwd()  
     # actions for TRExFitter
     #actions = 'i' # grouped systematics impact
     #actions = 'fp'# workspace and fit
