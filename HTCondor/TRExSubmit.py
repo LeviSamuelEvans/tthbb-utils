@@ -1,11 +1,11 @@
 '''
 
-    Python Script to run Condor batch jobs for different steps in TRExFitter 06.01.23 LE v1.0
+    Python Script to run Condor batch jobs for different steps in TRExFitter 06.01.23 LE 
 
     Need to optimise these features :
         1. The precedure for making the error and output directories inside the script ( DONE 08.02.23 )
         2. Have one submit file for all jobs and append the job submissions to it. 
-        4. Send a notification to the user when the jobs have finished finished | or just send the error notification if jobs do not run for any reason 
+        3. Send a notification to the user when the jobs have finished finished | or just send the error notification if jobs do not run for any reason [ DONE 08.02.23]
 
 '''
 
@@ -23,7 +23,8 @@ class TRExSubmit :
         self.actions       = actions
         self.runRegsSep    = runRegsSep
         self.extraOpts     = extraOpts
-    # Function to retrive regions defined in the yaml config file 
+
+    # Function to retrieve regions defined in the yaml config file 
     def getRegionList(self, config):
         regList = []
         for line in open(config):
@@ -34,7 +35,7 @@ class TRExSubmit :
         return regList
 
 
-    #Function to facilitate the submission of jobs for each region
+    # Function to facilitate the submission of jobs for each region
     def runSubmit(self):
         for config in self.listOfConfigs:
             if self.runRegsSep == True: # Parallelise the job submission by region.
@@ -79,7 +80,7 @@ class TRExSubmit :
     '''
 
 
-    def writehtcSubmit(self, name, exe, logs, workdir, err, args = "NONE", RunTime = "21600", univ = "vanilla", cpus = "4", out="NONE"):
+    def writehtcSubmit(self, name, exe, logs, workdir, err, out, args = "NONE", RunTime = "21600", univ = "vanilla", cpus = "4"):
         workdir = os.getcwd()
         '''
         File that writes a HTCondor submission script and returns it              
@@ -94,21 +95,16 @@ class TRExSubmit :
                 submit_file.write("arguments = $(ClusterId)$(ProcId)\n")
             else:
                 submit_file.write("arguments = " + args + "\n")
-            if (out == "NONE"):
-                submit_file.write("output = output_Feb23_HIstograms/"+name+"$(ClusterId)$(ProcId).out\n")
-            else:
-                submit_file.write("output = " + out + "\n")
-            # if (err == "NONE"):
-            #     submit_file.write("error = error_Feb23_Histograms/"+name+"$(ClusterId)$(ProcId).err\n")
-            # else:
+
+            submit_file.write("output = " + out + "\n")
             submit_file.write("error = " + err + "\n")
             submit_file.write("log = " + logs + "\n")
             submit_file.write("requirements = (OpSysAndVer =?= \"CentOS7\" ) \n")
             submit_file.write("universe = " + univ + "\n")
-            #submit_file.write("transfer_input_files = /usr/lib64/libgsl.so,/usr/lib64/libgsl.so.0,/usr/lib64/libgsl.so.0.16.0\n")
             submit_file.write("should_transfer_files = YES\n")
             submit_file.write("when_to_transfer_output = ON_EXIT\n")
             submit_file.write("+MaxRuntime = " + RunTime + "\n")
+            submit_file.write("notification = Error")
             submit_file.write("queue")
 
     def mkdir(self, directory):
@@ -116,8 +112,9 @@ class TRExSubmit :
             os.makedirs(directory)
         except:
             pass
+
     def jobSubmit(self, config, pathToExe, workDir, actions, region = '', extraOpts = ()):
-        configName = config.split('/')[-1].split('.')[0] # Assuming config file and fit have the same name, and fit name does not contain '.' characters.
+        configName = config.split('/')[-1].split('.')[0] 
         if region != '':
             submitName = configName+'_'+region
         else:
@@ -144,7 +141,7 @@ class TRExSubmit :
                   pathToShScripts+submitName+".sh",
                   logFile,
                   errorFile,
-                  #outputFile,
+                  outputFile,
                   workDir)
 
         condorSub = 'condor_submit '+pathToSubFile+submitName+".sub"
@@ -209,25 +206,27 @@ if __name__ == "__main__":
         #configsDir  + 'config_2l_baseline_BONLY.yaml',
 
             ]
-        
 
-    #listOfConfigs = [
-        #]
 
     # Path to compiled trex-fitter executable
     exePath = '/afs/cern.ch/user/l/leevans/TRExFitter/build/bin/trex-fitter'
 
-    # working directory where output will be copied to
+    ''' working directory where output will be copied to '''
+
     workingDir = os.getcwd()  
-    # actions for TRExFitter
+    # actions for TRExFitter [ Uncomment the step you want to run ]
     #actions = 'i' # grouped systematics impact
     #actions = 'fp'# workspace and fit
     actions = 'n' # histogram-stage
+    #actions = 'e' # Needed for EFTRExFitter as per instructions on these slides -> https://indico.cern.ch/event/1182995/contributions/4969950/attachments/2486132/4272181/2022-07-27_EFTREx_mcfayden.pdf [LE 08.2.23]
     #actions = 'dp'
     #actions = 'f'
     #actions = 'dwfp'
-    #actions = 'mwfp' # Combined-fit 
-    # parallelise the jobs by submitting one job per region
+    #actions = 'mwfp' # For running the combined-fit along with the workspace screation and post-fit plots 
+
+
+    ''' parallelise the jobs by submitting one job per region '''
+
     #runRegsSep = False
     runRegsSep = True 
 
