@@ -104,7 +104,7 @@ class TRExSubmit :
             submit_file.write("should_transfer_files = YES\n")
             submit_file.write("when_to_transfer_output = ON_EXIT\n")
             submit_file.write("+MaxRuntime = " + RunTime + "\n")
-            submit_file.write("notification = Error")
+            submit_file.write("notification = Error" + "\n")
             submit_file.write("queue")
 
     def mkdir(self, directory):
@@ -124,9 +124,9 @@ class TRExSubmit :
             
         logDir = workDir+'/logs/'+configName
         logFile = logDir+'/'+submitName+'.log'
-        errorDir = workDir+'/error/'+configName
+        errorDir = workDir+'/err/'+configName
         errorFile = errorDir+'/'+submitName+'.err'
-        outputDir = workDir+'/output/'+configName
+        outputDir = workDir+'/out/'+configName
         outputFile = outputDir+'/'+submitName+'.out'
         #args = actions+' '+config+' \''+opts+'\''
 
@@ -137,12 +137,7 @@ class TRExSubmit :
 
         self.writeSubmit(pathToShScripts+submitName+".sh", config, pathToExe, pathToShScripts, actions, region, extraOpts = ())
 
-        self.writehtcSubmit(submitName,
-                  pathToShScripts+submitName+".sh",
-                  logFile,
-                  errorFile,
-                  outputFile,
-                  workDir)
+        self.writehtcSubmit(submitName, pathToShScripts+submitName+".sh", logFile, workDir, errorFile, outputFile)
 
         condorSub = 'condor_submit '+pathToSubFile+submitName+".sub"
 
@@ -164,7 +159,7 @@ if __name__ == "__main__":
     # You can add as many configs as you want, will run jobs for all of them. Make sure to put the output directory in the TRExFitter configs!
     listOfConfigs = [
         configsDir + 'dev_config.yaml',
-        configsDir + 'dev2_config.yaml',
+        #configsDir + 'dev2_config.yaml',
         #configsDir + 'config_2l_Baseline_Full_Jan23.yaml',
         #configsDir + 'config_2l_Compare_Baseline_Comb_ttgeq1b_scale_var_only_Jan23.yaml',
         #configsDir + 'config_2l_Full_Study_ttgeq1b_combined_sys_Jan23.yaml ',
