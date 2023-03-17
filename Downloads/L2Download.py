@@ -36,9 +36,11 @@ Options for rsync
 -z: Compress the data during transfer to reduce network traffic [HIGHLY RECOMMENDED]
 -P: Show progress information and continue partial transfers if the transfer is interrupted [Needed for log files]
 -n: perform a dry-run of the download to check all is working as should [RECOMMENDED TO DO BEFORE ACTUAL DOWNLOAD]
+-e ssh: This will tell rsync to use ssh for authenticaion. You can set up a ssh-key such that you won't have to enter a password. Info in the README.md about how to do this :)
+
 '''
 
-rsync_command = ["rsync", "-vrzP"] # rsync command followed by actions
+rsync_command = ["rsync", "-vrznPe ssh"] # rsync command followed by actions
 
 # Open an overall log file for the Python script
 with open('FullProduction.log', 'w') as log_file:
@@ -46,7 +48,7 @@ with open('FullProduction.log', 'w') as log_file:
     # Define the function to download a directory of files
     def download_directory(directory):
         os.makedirs(directory, exist_ok=True)
-        source = "/eos/atlas/atlascerngroupdisk/phys-higgs/HSG8/ttHbb_legacy_L2ntuples/sys_v2.1/" + directory
+        source = "leevans@lxplus.cern.ch:/eos/atlas/atlascerngroupdisk/phys-higgs/HSG8/ttHbb_legacy_L2ntuples/sys_v2.1/" + directory
         destination = "./" + directory
         rsync_args = rsync_command + [source, destination]
         result = subprocess.run(" ".join(rsync_args), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
