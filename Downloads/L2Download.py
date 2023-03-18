@@ -49,7 +49,7 @@ with open('FullProduction.log', 'w') as log_file:
     def download_directory(directory):
         os.makedirs(directory, exist_ok=True)
         source = "leevans@lxplus.cern.ch:/eos/atlas/atlascerngroupdisk/phys-higgs/HSG8/ttHbb_legacy_L2ntuples/sys_v2.1/" + directory
-        destination = "./" + directory
+        destination = "./" + directory # the "./" here specifies the cwd, but you can add any file path you want here.
         rsync_args = rsync_command + [source, destination]
         result = subprocess.run(" ".join(rsync_args), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         # Write log files for each individual directory being downloaded
