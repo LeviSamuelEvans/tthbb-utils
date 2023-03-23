@@ -34,8 +34,8 @@ Options for rsync
 -r: Recursively copy entire directories
 -a: Both recursively copy directories and copy file read/write permissions and ownership information
 -z: Compress the data during transfer to reduce network traffic [HIGHLY RECOMMENDED]
--P: Show progress information and continue partial transfers if the transfer is interrupted [Needed for log files]
--n: perform a dry-run of the download to check all is working as should [RECOMMENDED TO DO BEFORE ACTUAL DOWNLOAD]
+-P: Show progress information and continue partial transfers if the transfer is interrupted [Needed for log files and useful for interuptions]
+-n: perform a dry-run of the download to check all is working as should [RECOMMENDED TO DO BEFORE ACTUAL DOWNLOAD!]
 -e ssh: This will tell rsync to use ssh for authenticaion. You can set up a ssh-key such that you won't have to enter a password. Info in the README.md about how to do this :)
 
 '''
