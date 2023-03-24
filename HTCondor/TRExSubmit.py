@@ -62,7 +62,7 @@ class TRExSubmit :
         '''
         File that writes a HTCondor submission script and returns it              
         '''
-        workDir = workdir+"submit_decorr_ttb_scar_var_study/HTCondor/"
+        workDir = workdir+"/submit_decorr_ttb_scar_var_study/HTCondor/"
         self.mkdir(workDir)
         with open(workDir+name+".sub", "w") as submit_file:
             submit_file.write("executable = " + exe + "\n")
@@ -101,8 +101,8 @@ class TRExSubmit :
         logFile = logDir+'/'+submitName+'.log'
         #args = actions+' '+config+' \''+opts+'\''
 
-        pathToShScripts = workDir+"submit_decorr_ttb_scar_var_study/bashScripts/" # Path to executable for HTCondor
-        pathToSubFile = workDir+"submit_decorr_ttb_scar_var_study/HTCondor/" # Path to HTCondor script
+        pathToShScripts = workDir+"/submit_decorr_ttb_scar_var_study/bashScripts/" # Path to executable for HTCondor
+        pathToSubFile = workDir+"/submit_decorr_ttb_scar_var_study/HTCondor/" # Path to HTCondor script
         
         self.mkdir(pathToShScripts)
 
