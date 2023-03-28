@@ -3,10 +3,9 @@
     Python Script to run Condor batch jobs for different steps in TRExFitter 06.01.23 LE v0.1
 
     Need to optimise these features :
-        1. The precedure for making the error and output directories inside the script | implement same structure as log file creation
-        2. The number fo submit files made
-        3. Make it such that the script submit jobs in one large batch, instead of separately
-        4. Send a notification to the user when the jobs ahve finished 
+        1. The procedure for making the error and output directories inside the script | implement same structure as log file creation [ ]
+        2. Make it such that the script submit jobs in one large batch, instead of separately [ ]
+        3. Send a notification to the user when the jobs have finished [ ] 
 
 '''
 
@@ -63,7 +62,7 @@ class TRExSubmit :
         '''
         File that writes a HTCondor submission script and returns it              
         '''
-        workDir = workdir+"submit_decorr_ttb_scar_var_study/HTCondor/"
+        workDir = workdir+"/submit_decorr_ttb_scar_var_study/HTCondor/"
         self.mkdir(workDir)
         with open(workDir+name+".sub", "w") as submit_file:
             submit_file.write("executable = " + exe + "\n")
@@ -102,8 +101,8 @@ class TRExSubmit :
         logFile = logDir+'/'+submitName+'.log'
         #args = actions+' '+config+' \''+opts+'\''
 
-        pathToShScripts = workDir+"submit_decorr_ttb_scar_var_study/bashScripts/" # Path to executable for HTCondor
-        pathToSubFile = workDir+"submit_decorr_ttb_scar_var_study/HTCondor/" # Path to HTCondor script
+        pathToShScripts = workDir+"/submit_decorr_ttb_scar_var_study/bashScripts/" # Path to executable for HTCondor
+        pathToSubFile = workDir+"/submit_decorr_ttb_scar_var_study/HTCondor/" # Path to HTCondor script
         
         self.mkdir(pathToShScripts)
 
@@ -143,15 +142,18 @@ if __name__ == "__main__":
     # Actions for TRExFitter #
     ##########################
     
-    #actions = 'i' # grouped systematics impact
-    #actions = 'fp'# workspace and fit
-    #actions = 'n' # histogram-stage
-    #actions = 'f'
-    #actions = 'dwfp'
-    #actions = 'wfp'
-    #actions = 'mf'
-    #actions = 'mfp' # Combined-fit 
-    #actions = 'mwfp'
+    #actions = 'i'    # grouped systematics impact
+    #actions = 'fp'   # Individual fit and post-fit plots
+    #actions = 'n'    # histogram-stage
+    #actions = 'f'    # Individual fit 
+    #actions = 'dwfp' # Pre-fit plots,workspace,fit and post-fit plots
+    #actions = 'wfp'  # workspace,fit and post-fit plots
+    #actions = 'mf'   # Combined-fit
+    #actions = 'mfp'  # Combined-fit and post-fit plots
+    #actions = 'mwfp' # Combined workspace,fit and post-fit plots
+    #actions = 'r'    # Ranking 
+
+
 
 
     ## Parallelise the jobs by submitting one job per region ##
