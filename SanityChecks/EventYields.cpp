@@ -119,7 +119,7 @@ int main() {
     std::cout << "Enter directory path: ";
     std::string dir_path;
     std::getline(std::cin, dir_path);
-    std::string logFilePath = "EventYields_2l.log";
+    std::string logFilePath = "EventYields_1l_212220.log";
     logFile.open(logFilePath);
     if (!logFile) {
         std::cerr << "Error: could not open log file " << logFilePath << std::endl;
