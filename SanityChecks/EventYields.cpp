@@ -2,7 +2,7 @@
 // Basic script to check event yields in L2 samples LE v0.2 //
 //                                                          //
 
-// - Requires a .txt file containting all root files to run over and print outputs to terminal/ log files 
+// - Requires user input of directory containing .root files 
 // - compile using g++ -o EventYeilds EventYeilds.cpp `root-config --cflags --libs`
 // - This will create an executable that can be run with ./EventYeilds
 
@@ -14,7 +14,7 @@
 #include "TTree.h"
 
 void getEntries(const char* filename) {
-    // Open root file
+    // Open each root file 
     TFile* file = new TFile(filename, "READ");
     if (!file || file->IsZombie()) {
         std::cerr << "Error: could not open file " << filename << std::endl;
