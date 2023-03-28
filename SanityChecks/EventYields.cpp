@@ -1,8 +1,16 @@
-/* Script to check event yields in L2 samples LE v0.3
+/* 
+=============================================================================================
+==============   Script to check event yields in L2 samples LE v1.0     =====================
 
- - compile using g++ -o EventYields_v0.3 EventYields_v0.3.cpp `root-config --cflags --libs`
+ - compile using g++ -o EventYields EventYields.cpp `root-config --cflags --libs`
  - This will create an executable that can be run with ./EventYeilds
 
+- When running the script you will be promted to enter the top directory where all the .root
+files are found, the script will recursivley find all .root files in all directories.
+- a log file will be produced with a table of Event yields for each sample 
+- an extra column is also included for any cuts you would like to apply
+
+=============================================================================================
 */
 
 #include <iostream>
