@@ -3,7 +3,7 @@
 //                                                          //
 
 // - Requires a .txt file containting all root files to run over and print outputs to terminal/ log files 
-// - compile using g++ -o EventYeilds EventYeilds.cpp `root-config --cflags --libs`
+// - compile using g++ -o EventYields EventYields.cpp `root-config --cflags --libs`
 // - This will create an executable that can be run with ./EventYeilds
 
 #include <iostream>
