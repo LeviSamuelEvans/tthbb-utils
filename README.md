@@ -9,6 +9,11 @@ in TRExFitter, which needs to be parallelised when running using the full system
 ##### TRExFitter Batch Job Submission
 TRExSubmit.py is a script that can be used to submit batch jobs for TRExFitter. The script can be used for both histogram generation and running fits. Simply modify the options in the script with the desired configuration settings and execute the script to submit the job to the batch system. This will create two folders; HTCondor and BashScripts, which contain relevant condor .sub files and .sh files for executing the jobs in the condor nodes. You can add as many configs into the script and jobs for all of these will be submitted. Actions for TRExFitter can be found towards the end of the script, along with an option for region-splitting in the case of generating histograms.
 
+- NOTE: Add scripts for Ranking + splitting by Region:Sample:Systematic
+
+    ###### Merging
+    A rudimentary merging script is currently available, *merge_histos.sh*, to faciliate merging together   histograms after splitting by region/sample/systematic in the TRExFitter histogram generation or `n` step.
+
 ##### Level 2 Sample Downloading
 L2Download.py is a script that uses rsync and multithreading to facilitate in downloading level 2 samples from eos to the RHUL Tier 2 system. The script can be configured to download only a specific set of samples, and can be run in parallel to speed up the download process.
 
