@@ -14,13 +14,29 @@ import subprocess
 import yaml
 
 # Read the YAML file
-with open('merge_1l_inclusive.yaml', 'r') as file:
+with open('file_paths.yaml', 'r') as file:
     file_paths = yaml.safe_load(file)
 
-# Get the input file paths, baseline output file paths, and list of systematics from the YAML file
-input_files = file_paths['input_files']
-baseline_output_files = file_paths['baseline_output_files']
-systematics = file_paths['systematics']
+# Get the input file paths from the YAML file, with error handling
+try:
+    input_files = file_paths['input_files']
+except KeyError:
+    print("Error: 'input_files' key not found in file_paths.yaml")
+    exit(1)
+
+# Get the baseline output file paths from the YAML file, with error handling
+try:
+    baseline_output_files = file_paths['baseline_output_files']
+except KeyError:
+    print("Error: 'baseline_output_files' key not found in file_paths.yaml")
+    exit(1)
+
+# Get the list of systematics from the YAML file, with error handling
+try:
+    systematics = file_paths['systematics']
+except KeyError:
+    print("Error: 'systematics' key not found in file_paths.yaml")
+    exit(1)
 
 # Loop through the input files and baseline output files and generate the output filenames
 for input_file, baseline_output_file in zip(input_files, baseline_output_files):
@@ -44,4 +60,5 @@ for input_file, baseline_output_file in zip(input_files, baseline_output_files):
 
     # Run the hupdate command in the terminal
     subprocess.run(hupdate_cmd, shell=True, check=True)
+
 
