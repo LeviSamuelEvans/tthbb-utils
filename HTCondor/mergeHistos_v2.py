@@ -26,9 +26,9 @@ except KeyError:
 
 # Get the baseline output file paths from the YAML file, with error handling
 try:
-    baseline_output_files = file_paths['baseline_output_files']
+    baseline_output_files = file_paths['base_output_files']
 except KeyError:
-    print("Error: 'baseline_output_files' key not found in merge_1l_inclusive.yaml")
+    print("Error: 'base_output_files' key not found in merge_1l_inclusive.yaml")
     exit(1)
 
 # Get the list of systematics from the YAML file, with error handling
@@ -60,5 +60,6 @@ for input_file, baseline_output_file in zip(input_files, baseline_output_files):
 
     # Run the hupdate command in the terminal
     subprocess.run(hupdate_cmd, shell=True, check=True)
+
 
 
