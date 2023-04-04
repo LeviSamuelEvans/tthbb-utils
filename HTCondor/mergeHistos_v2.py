@@ -4,30 +4,8 @@
 
 """
 Usage:  
-    Requires a yaml configuration file with following structure :
-       
-        input_files:
-            - input_file_1.root
-            - input_file_2.root
-            - input_file_3.root
-        baseline_output_files:
-            - baseline_output_1.root
-            - baseline_output_2.root
-            - baseline_output_3.root
-        Systematics:
-            - syst1
-            - syst2
-            - syst3
-
-i.e     input_file: 
-            - Fit_2l_ttH_STXS1_2l_histos.root 
-        baseline_output_files:
-            - "Fit_2l_ttH_STXS1_2l_histos_{}.root"
-        Systematics:
-            - Zjets_XS
-            - Wjets_XS
-            - ttbb_PH7_PS
-
+    Requires a yaml configuration file.
+       Example in repo. 
 """
 
 
