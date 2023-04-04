@@ -5,6 +5,10 @@
 """
 Usage:
     Requires a yaml configuration file with following structure :
+
+    python3 mergeHistos.py --systematics STXS OR python3 mergeHistos.py --systematics inc
+
+    note: you will need to compile TRExFitter.
 """
 
 import os
