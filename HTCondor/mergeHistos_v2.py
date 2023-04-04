@@ -14,7 +14,7 @@ import subprocess
 import yaml
 
 # Read the YAML file
-with open('file_paths.yaml', 'r') as file:
+with open('merge_1l_inclusive.yaml', 'r') as file:
     file_paths = yaml.safe_load(file)
 
 # Get the input file paths from the YAML file, with error handling
