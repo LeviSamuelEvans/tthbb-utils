@@ -21,21 +21,21 @@ with open('merge_1l_inclusive.yaml', 'r') as file:
 try:
     input_files = file_paths['input_files']
 except KeyError:
-    print("Error: 'input_files' key not found in file_paths.yaml")
+    print("Error: 'input_files' key not found in merge_1l_inclusive.yaml")
     exit(1)
 
 # Get the baseline output file paths from the YAML file, with error handling
 try:
     baseline_output_files = file_paths['baseline_output_files']
 except KeyError:
-    print("Error: 'baseline_output_files' key not found in file_paths.yaml")
+    print("Error: 'baseline_output_files' key not found in merge_1l_inclusive.yaml")
     exit(1)
 
 # Get the list of systematics from the YAML file, with error handling
 try:
     systematics = file_paths['systematics']
 except KeyError:
-    print("Error: 'systematics' key not found in file_paths.yaml")
+    print("Error: 'systematics' key not found in merge_1l_inclusive.yaml")
     exit(1)
 
 # Loop through the input files and baseline output files and generate the output filenames
