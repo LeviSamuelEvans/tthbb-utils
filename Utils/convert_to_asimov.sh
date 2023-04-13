@@ -26,7 +26,7 @@ found_region=false
 
 temp_file=$(mktemp)
 
-# Step 1-2
+# Removes hashes from Asimov fit block and hashes out Bkg-only fit block
 while IFS= read -r line; do
     if [[ $line == "#Asimov"* ]]; then
         found_asimov=true
@@ -58,7 +58,7 @@ done < "$input_file"
 
 temp_file2=$(mktemp)
 
-# Step 3
+# Hashes out SIGNAL regions 
 buffer=""
 while IFS= read -r line; do
     if [[ -z $line ]]; then
@@ -90,9 +90,11 @@ if [[ -n $buffer ]]; then
     echo -e "$buffer" >> "$temp_file2"
 fi
 
-# Step 4
-sed 's/VALIDATION/SIGNAL/g; s/\(OutputDir.*\)bonly/\1asi/; s/\(OutputDir.*\)BONLY/\1asi/' "$temp_file2" > "$output_file"
-output_dir=$(grep "OutputDir" "$output_file" | awk '{print $2}' | tr -d '"')
+# Converts VALIDATION regions to SIGNAL 
+sed 's/VALIDATION/SIGNAL/g' "$temp_file2" > "$temp_file3"
+
+# Amends the output file name by replacing the 'bonly' flag with 'asi'
+sed 's/\(OutputDir.*\)bonly/\1asi/; s/BONLY/asi/' "$temp_file3" > "$output_file"output_dir=$(grep "OutputDir" "$output_file" | awk '{print $2}' | tr -d '"')
 mkdir -p "$output_dir"
 
 rm "$temp_file" "$temp_file2"
