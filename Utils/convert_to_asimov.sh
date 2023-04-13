@@ -91,11 +91,14 @@ if [[ -n $buffer ]]; then
 fi
 
 # Converts VALIDATION regions to SIGNAL 
+temp_file3=$(mktemp)
 sed 's/VALIDATION/SIGNAL/g' "$temp_file2" > "$temp_file3"
 
 # Amends the output file name by replacing the 'bonly' flag with 'asi'
-sed 's/\(OutputDir.*\)bonly/\1asi/; s/BONLY/asi/' "$temp_file3" > "$output_file"output_dir=$(grep "OutputDir" "$output_file" | awk '{print $2}' | tr -d '"')
+sed 's/\(OutputDir.*\)bonly/\1asi/; s/BONLY/asi/' "$temp_file3" > "$output_file"
+
+output_dir=$(grep "OutputDir" "$output_file" | awk '{print $2}' | tr -d '"')
 mkdir -p "$output_dir"
 
-rm "$temp_file" "$temp_file2"
+rm "$temp_file" "$temp_file2" "$temp_file3"
 echo "Modified file saved as $output_file"
