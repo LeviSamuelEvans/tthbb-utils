@@ -6,7 +6,6 @@
 
 # To use simply do ./convert_to_asimov config.yaml
 
-
 # Check if the input file is provided
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <input_file>"
@@ -15,6 +14,7 @@ fi
 
 input_file="$1"
 output_file="${input_file/bonly/asi}"
+output_file="${output_file/BONLY/ASI}"
 
 # Initialize the flags as false
 remove_hash=false
@@ -47,7 +47,7 @@ while IFS= read -r line; do
         add_hash=true
     fi
 
-    if $add_hash; then
+    if $add_hash && [[ -n $line ]]; then
         line="#$line"
     elif $remove_hash; then
         line="${line/#\#/}"
@@ -91,7 +91,7 @@ if [[ -n $buffer ]]; then
 fi
 
 # Step 4
-sed 's/VALIDATION/SIGNAL/g; s/\(OutputDir.*\)bonly/\1asi/' "$temp_file2" > "$output_file"
+sed 's/VALIDATION/SIGNAL/g; s/\(OutputDir.*\)bonly/\1asi/; s/\(OutputDir.*\)BONLY/\1asi/' "$temp_file2" > "$output_file"
 output_dir=$(grep "OutputDir" "$output_file" | awk '{print $2}' | tr -d '"')
 mkdir -p "$output_dir"
 
