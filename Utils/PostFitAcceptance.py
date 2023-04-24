@@ -6,6 +6,10 @@ from atlasify import atlasify
 
 # order in .tex is ttb,tB,2b,c,light
 
+## Quick Plot to examine post-fit accectance effects of Nuisance Parameters
+
+# -- Improve code by reading straight from .tex files and plot all together 
+
 # --------------------------------------------------------------------------------------
 
 #====================#
@@ -111,9 +115,9 @@ ttB_data = {'norm ttbb-4FS-PH7-PS': 6.9,
             }
 
 
-#==================#
+#================#
 # tt+B Component #
-#==================#
+#================#
 
 tt_light_data = {'norm tt1B-4FS-PH7-PS': -4.5,
                  'norm tt1B-4FS-scale-var': -1.5,
@@ -192,22 +196,21 @@ ttc_df = pd.DataFrame(list(ttc_data.items()), columns=['Parameter', 'Effect'])
 ttB_df = pd.DataFrame(list(ttB_data.items()), columns=['Parameter', 'Effect'])
 
 
-# Set up plot
+# Set up the plot
 fig, ax = plt.subplots(figsize=(10, 5))
 ax.set_title('Post-fit Acceptance effects: comb')
 ax.tick_params(axis='both', labelsize=6)
-# ax.set_xlabel('Nuisance parameter')
-# ax.set_ylabel('Acceptance effect (%)')
-# Add grid to the plot
+
+# Add the grid lines to the plot
 ax.grid(axis='y', linestyle='--', alpha=0.7)
 
 
-# Combine data into one dataframe for plotting
+# Combine data into one dataframe for plotting the bar graph 
 df = pd.concat([tt_light_df, tt_1b_df, tt_2b_df,ttc_df, ttB_df,], axis=0)
 df['Region'] = ['tt+light'] * len(tt_light_df) + ['tt+1b'] * len(tt_1b_df) + \
                ['tt+≥2b'] * len(tt_2b_df) + ['tt+≥1c'] * len(ttc_df) + ['tt+B'] * len(ttB_df)
 
-# Set color for each region
+# Set color for each region, based on colours used in Data/MC plots
 colors = {
           'tt+1b': (0,0,255),
           'tt+≥2b': (0, 128, 255),
@@ -219,7 +222,7 @@ colors = {
 # Convert RGB tuple to hex code
 colors = {key: '#{:02x}{:02x}{:02x}'.format(*value) for key, value in colors.items()}
 
-# Create bar plot using Seaborn
+# Create bar plot using Seaborn 
 sns.barplot(x='Parameter', y='Effect', hue='Region', data=df, ax=ax, palette=colors, linewidth=15, saturation=1.0, width=0.85)
 
 # Rotate x-axis labels
@@ -227,18 +230,18 @@ plt.xticks(rotation=45, ha='right')
 
 ax.axhline(y=0, color='black', linewidth=0.5)
 
-# Add legend outside the plot
+# Add legend outside the plot for each region 
 ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 # Adjust plot margins
 plt.subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9, wspace=0.2, hspace=0.2)
 
-# Set y-axis tick frequency
+# Set y-axis tick frequency 
 ax.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
 ax.set_xlabel('Nuisance parameter')
 ax.set_ylabel('Acceptance effect (%)')
 atlasify('Internal', '$\sqrt{s}$ = 13 TeV, 140fb$^{-1}$')
 plt.savefig('PFA_ttcomb.pdf', bbox_inches='tight')
 plt.savefig('PFA_ttcomb.png', bbox_inches='tight')
-# Show plot
+
 #plt.show()
