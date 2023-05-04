@@ -37,6 +37,7 @@ Options for rsync
 -P: Show progress information and continue partial transfers if the transfer is interrupted [Needed for log files and useful for interuptions]
 -n: perform a dry-run of the download to check all is working as should [RECOMMENDED TO DO BEFORE ACTUAL DOWNLOAD!]
 -e ssh: This will tell rsync to use ssh for authenticaion. You can set up a ssh-key such that you won't have to enter a password. Info in the README.md about how to do this :)
+-- progress : This will give an estimate of the time remaining for the download 
 
 '''
 
