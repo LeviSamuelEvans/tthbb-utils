@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 A script to assist in downloading the ttH(bb) Legacy Analysis Common L2 Ntuples from the Higgs group disk to linappserv LE v0.1 17.03.23
 
@@ -25,9 +26,9 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
 # Define the directories to download
-directories = ['1l/5j3b_ttb/','1l/5j3b_ttbb/','1l/5j3b_ttc/','1l/5j3b_ttlight/','1l/5j3b_ttH/','1l/5j3b_ttB/','1l/boosted/', '2l/3j3b_ttb/','2l/3j3b_ttbb/','2l/3j3b_ttB/','2l/3j3b_ttc/','2l/3j3b_ttlight/','2l/3j3b_ttH/','2l/boosted/']             
+directories = ['1l/5j3b_ttb/','1l/5j3b_ttbb/','1l/5j3b_ttc/','1l/5j3b_ttlight/','1l/5j3b_ttH/','1l/5j3b_ttB/','1l/boosted/', '2l/3j3b_ttb/','2l/3j3b_ttbb/','2l/3j3b_ttB/','2l/3j3b_ttc/','2l/3j3b_ttlight/','2l/3j3b_ttH/','2l/boosted/']
 
-# Define the rsync command with options 
+# Define the rsync command with options
 '''
 Options for rsync
 -v: Verbose output, print information about each file as it is transferred
@@ -37,7 +38,7 @@ Options for rsync
 -P: Show progress information and continue partial transfers if the transfer is interrupted [Needed for log files and useful for interuptions]
 -n: perform a dry-run of the download to check all is working as should [RECOMMENDED TO DO BEFORE ACTUAL DOWNLOAD!]
 -e ssh: This will tell rsync to use ssh for authenticaion. You can set up a ssh-key such that you won't have to enter a password. Info in the README.md about how to do this :)
--- progress : This will give an estimate of the time remaining for the download 
+-- progress : This will give an estimate of the time remaining for the download
 
 '''
 
@@ -61,7 +62,7 @@ with open('FullProduction.log', 'w') as log_file:
         log_file.write(f"Output for {directory}:\n")
         log_file.write(result.stdout.decode())
         log_file.write(result.stderr.decode())
-        
+
     # Execute the rsync commands in parallel using a thread pool
     with ThreadPoolExecutor(max_workers=14) as executor:
         futures = [executor.submit(download_directory, directory) for directory in directories]
@@ -79,8 +80,8 @@ with open('FullProduction.log', 'w') as log_file:
 The max_workers parameter of the ThreadPoolExecutor constructor specifies the maximum number of worker threads to use for executing the submitted tasks.
 In this case, the value of max_workers is set to 14, which means that the executor will use up to 14 threads to execute the download_directory function in parallel.
 
-The ThreadPoolExecutor creates a pool of worker threads that can execute multiple tasks concurrently, which can improve the performance of the script by allowing it to 
-download multiple directories simultaneously. The number of worker threads should be chosen based on the number of available CPU cores and the expected workload of the script, 
+The ThreadPoolExecutor creates a pool of worker threads that can execute multiple tasks concurrently, which can improve the performance of the script by allowing it to
+download multiple directories simultaneously. The number of worker threads should be chosen based on the number of available CPU cores and the expected workload of the script,
 to ensure that the script does not overwhelm the system or create a bottleneck. Run 'lscpu' to get more information on the specs of the machine you are using.
 
 """
