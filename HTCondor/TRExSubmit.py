@@ -18,6 +18,10 @@
     - Submission of all jobs in a single cluster instead of many clusters with one job each
     - Possibility to execute a dry-run - Generates ready-to-execute scripts for submission, but does not submit
 
+ - v2.1 New features:
+    - Detection of configs without systematics to fix a no-submission bug in these cases
+    - Possibility to bundle multiple systematics per batch-job to reduce I/O load on ntuple files
+
 Develop in this branch then merge in once ready.
 
  TODO: Nice to haves:
@@ -26,7 +30,6 @@ Develop in this branch then merge in once ready.
        - Could also allow for automatic config gathering with workspace fetching in later steps
     - Add deployment possibilities via tarballs for batch systems where submit and worker nodes do not share a
       filesystem
-    - Make the action selection nicer/smarter than a choice in the parser
     - Convert submission scripts to DAG for automatic hupdate jobs with split systematics
     - Use htcondor API library for job submission directly instead of using subprocess
 """
@@ -55,6 +58,9 @@ class TRExSubmit:
     :param bool or None split_systs:
         Whether to split supported actions by systematic in each region (`True`) or not (`False`). By default, such
         actions are split.
+    :param int or None num_syst_per_job:
+        How many systematics to bundle per batch job during the `n` action, if neither `split_regions` nor `split_systs`
+        is engaged.
     :param List[str] or None extra_opts:
         Extra options to be supplied to the TRExFitter executable. By default, no such options are supplied.
 
@@ -68,6 +74,7 @@ class TRExSubmit:
                  actions,
                  split_regions=True,
                  split_systs=True,
+                 num_syst_per_job=20,
                  extra_opts=None):
         self.config_list = config_list
         self.trex_folder = trex_folder
@@ -96,14 +103,22 @@ class TRExSubmit:
             )
             sys.exit(1)
 
+        # Check if we got any configs if we don't integrate
+        if not self.config_list:
+            print("\033[31mERROR: You cannot run without configs!\033[0m", file=sys.stderr)
+            sys.exit(1)
+
         # It only makes sense to run regions separated if we have the `n` action included
         self.split_regions = split_regions if self.actions == 'n' else False
         # We automatically run systematics together if we run regions together
         self.split_systs = split_systs and self.split_regions
+        self.num_syst_per_job = num_syst_per_job if self.split_systs else None
         self.extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
         # Associate regions and systematics with config files (and check that we only have each region once)
         self.config_region_syst_dict = self._get_config_region_syst_dict(self.config_list)
+        # Now check that we have at least one systematic - or disable the split by systematics
+        self._check_update_systematic_split(self.config_region_syst_dict)
 
         # Build the correct key for the granularity-dict
         self.granularity = 'global'
@@ -283,6 +298,55 @@ class TRExSubmit:
 
         return syst_list
 
+    def _check_update_systematic_split(self, config_region_syst_dict):
+        """Check number of systematics per config and region for job splits
+
+        :param Dict[str, Dict[str, List[str]]] config_region_syst_dict:
+            Dictionary with config file names and associated regions and systematics in the schema returned by
+            `_get_config_region_syst_dict`.
+        """
+        # No need to do anything if we already do not split by systematics
+        if not self.split_systs:
+            return
+
+        for config, region_syst_dict in config_region_syst_dict.items():
+            if not region_syst_dict['systs']:
+                print(
+                    f"INFO: No systematics present for config '{config}'.\n"
+                    f"      Disabling systematics split in condor jobs..."
+                )
+                self.split_systs = False
+                break
+
+    def _make_syst_bundle(self, systematics_list) -> List[str]:
+        """Bundles systematics into groups to reduce file I/O load
+
+        The systematics will be bundled with `num_syst_per_job` systematics per bundle. Systematics are separated by `,`
+        as per TRExFitter conventions.
+
+        :param List[str] systematics_list:
+            List of systematics to be bundled.
+
+        :returns
+            List of bundles systematics separated by `,`.
+        :rtype: list of str
+        """
+        syst_bundles = []
+        tmp_syst_list = []
+
+        for syst in systematics_list:
+            if len(tmp_syst_list) < self.num_syst_per_job:
+                tmp_syst_list.append(syst)
+            else:
+                syst_bundles.append(','.join(tmp_syst_list))
+                tmp_syst_list.clear()
+
+        # Final fill with possible left-over systematics
+        if tmp_syst_list:
+            syst_bundles.append(','.join(tmp_syst_list))
+
+        return syst_bundles
+
     def _build_job_file(self, config_region_syst_dict, job_filename):
         """Generates a file containing the job information needed by condor_submit
 
@@ -305,8 +369,9 @@ class TRExSubmit:
                     outlines.append(f"{config} {short_config} {region}")
                     continue
 
-                for syst in region_syst_dict['systs']:
-                    outlines.append(f"{config} {short_config} {region} {syst}")
+                # Build lists of systematics to be put into each file
+                for syst_bundle in self._make_syst_bundle(region_syst_dict['systs']):
+                    outlines.append(f"{config} {short_config} {region} {syst_bundle}")
 
         with open(job_filename, 'w') as f:
             f.write('\n'.join(outlines))
@@ -510,12 +575,12 @@ if __name__ == "__main__":
         '--single-syst-n', action='store_false', dest='split_systs',
         help='Instructs TRExFitter to carry out the `n`-action in a single job for all systematics per region.'
     )
+    job_split_procedure.add_argument(
+        '--syst-per-job', metavar='NUM_SYSTS', type=int, default=20, dest='num_syst_per_job',
+        help='How many systematics to run per `n`-job to avoid DDoSing input files. Has no impact on other actions.'
+    )
 
     args = parser.parse_args()
-
-    if len(args.trex_configs) == 0:
-        print("\033[31mERROR: You need to supply at least one config!\033[0m", file=sys.stderr)
-        sys.exit(1)
 
     submit_jobs = TRExSubmit(
             args.trex_configs,
@@ -524,6 +589,7 @@ if __name__ == "__main__":
             args.actions,
             split_regions=args.split_regions,
             split_systs=args.split_systs,
+            num_syst_per_job=args.num_syst_per_job,
             extra_opts=args.trex_options
     )
     submit_jobs.build_and_submit(dry_run=args.dry_run, stage_out_results=args.transfer_output)
