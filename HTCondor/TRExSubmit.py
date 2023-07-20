@@ -19,25 +19,29 @@
     - Possibility to execute a dry-run - Generates ready-to-execute scripts for submission, but does not submit
 
  - v2.1 New features:
+    - Possibility to store configs and replacement files consistently within the work directory for re-use between
+      actions
+    - Change of default behaviour for results: Instead of getting stored in the work directory, config paths are
+      respected
     - Detection of configs without systematics to fix a no-submission bug in these cases
     - Possibility to bundle multiple systematics per batch-job to reduce I/O load on ntuple files
 
 Develop in this branch then merge in once ready.
 
  TODO: Nice to haves:
-    - Copy configs and replacement file(s) into the work directory for easy access.
-       - Would reduce the amount of hard-coding required in the configs wrt replacement files
-       - Could also allow for automatic config gathering with workspace fetching in later steps
     - Add deployment possibilities via tarballs for batch systems where submit and worker nodes do not share a
       filesystem
     - Convert submission scripts to DAG for automatic hupdate jobs with split systematics
     - Use htcondor API library for job submission directly instead of using subprocess
 """
 
+import tempfile
 import sys
 import os
 import subprocess
 import stat
+import shutil
+import re
 # Used for type deduction in the docs
 from typing import List, Dict, Optional
 
@@ -53,6 +57,10 @@ class TRExSubmit:
         Root directory to store scripts, logs, and more in.
     :param str actions:
         Actions to be executed by TRExFitter.
+    :param bool or None integrate_everything:
+        Whether to also store configs and the TRExFitter workspace inside `work_dir` (`True`) or not (`False`).
+        This also adjusts paths inside the configs to work seamlessly. By default, configs are not stored inside
+        `work_dir` and the manually defined paths of the configs are used for replacement files, inputs, and outputs.
     :param bool or None split_regions:
         Whether to split supported actions by region (`True`) or not (`False`). By default, such actions are split.
     :param bool or None split_systs:
@@ -72,6 +80,7 @@ class TRExSubmit:
                  trex_folder,
                  work_dir,
                  actions,
+                 integrate_everything=False,
                  split_regions=True,
                  split_systs=True,
                  num_syst_per_job=20,
@@ -86,6 +95,16 @@ class TRExSubmit:
         # Only required if we want to keep configs and TRExFitter workspace in the work directory
         self.config_dir = os.path.join(self.work_dir, self.SUB_DIRS["configs"])
         self.workspace_dir = os.path.join(self.work_dir, self.SUB_DIRS["results"])
+
+        # Build the regex expressions needed later on
+        # Rep-file: Take everything up to comments and trim whitespace in the path, disregard quotes
+        self._rep_regex = re.compile(
+                "^\s*ReplacementFile\s*:\s*(?P<value>[^#%]*[^\s#%])[\s#%]*")         # noqa W605
+        # Other keys: Allow quote-escaping of value and add key and quote groups with logic for retrieval
+        self._key_regex = re.compile(
+                "^\s*(?P<key>[\w-]+)\s*:\s*(?P<quote>\")?"                           # noqa W605
+                "(?P<value>(?(quote)[^\"]+|[^\"#%]*[^\"\s#%]))(?(quote)\"|)[\s#%]*"  # noqa W605
+        )
 
         # Make the work directory (pass if it's already present but fail if the parent directory is not there)
         try:
@@ -103,10 +122,20 @@ class TRExSubmit:
             )
             sys.exit(1)
 
+        # Logic-OR whether to integrate configs and results
+        self.integrate_everything = self._check_update_integrate_cachefile(integrate_everything)
+
         # Check if we got any configs if we don't integrate
-        if not self.config_list:
-            print("\033[31mERROR: You cannot run without configs!\033[0m", file=sys.stderr)
+        if not self.integrate_everything and not self.config_list:
+            print("\033[31mERROR: You cannot run in non-integrated mode without configs!\033[0m", file=sys.stderr)
             sys.exit(1)
+
+        # We need to transfer configs and query everything if we want to integrate everything into the work directory
+        if self.integrate_everything:
+            os.makedirs(self.config_dir, exist_ok=True)
+            if self.config_list is not None:
+                self._check_integrate_configs(self.config_list)
+            self.config_list = [os.path.join(self.config_dir, f) for f in self._query_cached_configs()]
 
         # It only makes sense to run regions separated if we have the `n` action included
         self.split_regions = split_regions if self.actions == 'n' else False
@@ -140,17 +169,13 @@ class TRExSubmit:
             Whether results of the fits need to be staged out of the worker nodes (`True`, in case access point and
             worker node don't share a filesystem) or not (`False`). By default, no need to stage out results is assumed.
         """
+
         os.makedirs(self.script_dir, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(self.workspace_dir, exist_ok=True)
+        if self.integrate_everything:
+            os.makedirs(self.workspace_dir, exist_ok=True)
 
         condor_result_dir = self.workspace_dir if stage_out_results else None
-
-        # Define custom output folder in TRExFitter CL-options if we have a shared filesystem
-        if not stage_out_results and self.extra_opts is None:
-            self.extra_opts = f"OutputDir={self.workspace_dir}"
-        elif not stage_out_results:
-            self.extra_opts += [f"OutputDir={self.workspace_dir}"]
 
         job_file = os.path.join(self.script_dir, f"job_arguments_{self.actions}.txt")
         script_file = os.path.join(self.script_dir, f"script_{self.actions}.sh")
@@ -174,6 +199,49 @@ class TRExSubmit:
             proc = subprocess.run(["condor_submit", submit_file], stdout=sys.stdout, stderr=sys.stderr)
             sys.exit(proc.returncode)
 
+    def _check_update_integrate_cachefile(self, cli_flag) -> bool:
+        """Checks whether integration of configs and results should be performed
+
+        This is set to `True` either if directly submitted via CLI options or already present in the work-directory as
+        a cachefile `_integrate.cache`.
+
+        :param bool cli_flag:
+            Whether the integrate option was specifically requested via CLI (`True`) or not (`False`). This is necessary
+            to update the integrate cache if previous steps did not explicitly request integration.
+
+        :returns:
+            Integration-flag built from a logical-OR of `integration_flag` and (if present) the work directory cache.
+        :rtype: bool
+        """
+        integration_cachefile = os.path.join(self.work_dir, '.integrate.cache')
+        cache_flag = False
+
+        # Read in cache flag and update combined flag is existing
+        if os.path.isfile(integration_cachefile):
+            with open(integration_cachefile) as f:
+                cache_flag = f.read().replace('\n', '') == 'True'  # Remove unwanted linebreaks
+            integration_flag = cli_flag | cache_flag
+        else:
+            integration_flag = cli_flag
+
+        # Update cache-file
+        with open(integration_cachefile, 'w') as f:
+            cache_flag_string = 'True' if integration_flag else 'False'
+            f.write(cache_flag_string)
+
+        # Generate some logging output
+        if cache_flag:
+            print(f"INFO: Integrating configs and TRExFitter workspace into '{self.work_dir}' as saved in cache.")
+        elif cli_flag:
+            print(f"INFO: Integrating configs and TRExFitter workspace into '{self.work_dir}' as requested on CLI.")
+        else:
+            print(
+                f"INFO: Not integrating configs and TRExFitter workspace into '{self.work_dir}'.\n"
+                f"      Ensuring consistent paths in the configs is your responsibility!"
+            )
+
+        return integration_flag
+
     def _get_config_region_syst_dict(self, config_list) -> Dict[str, Dict[str, List[str]]]:
         """Retrieves regions and systematics from multiple TRExFitter configs and checks region uniqueness
 
@@ -196,6 +264,7 @@ class TRExSubmit:
 
         :raises RuntimeError:
             If some region is present in multiple configs.
+
         """
         region_check_set = set()
         config_region_syst_dict = {}
@@ -220,8 +289,7 @@ class TRExSubmit:
 
         return config_region_syst_dict
 
-    @staticmethod
-    def _get_region_list(config) -> List[str]:
+    def _get_region_list(self, config) -> List[str]:
         """Retrieves regions from TRExFitter config
 
         :param str config:
@@ -235,18 +303,10 @@ class TRExSubmit:
 
         with open(config) as conf:
             for line in conf:
-                line = line.split('%')[0].strip()
+                key_match = self._key_regex.search(line)
 
-                if 'Region:' not in line or 'FitRegion' in line:
-                    continue
-
-                region = line.split(":")[1].strip()
-
-                # Check if the region name is enclosed by double quotes, remove them if so
-                if region.startswith('"') and region.endswith('"'):
-                    region = region[1:-1]
-
-                region_list.append(region)
+                if key_match is not None and key_match['key'] == 'Region':
+                    region_list.append(key_match['value'])
 
         print(f"INFO: Regions found in '{config}':")
         for region in region_list:
@@ -318,32 +378,197 @@ class TRExSubmit:
                 self.split_systs = False
                 break
 
-    def _make_syst_bundle(self, systematics_list) -> List[str]:
+    def _check_integrate_configs(self, config_list):
+        """Add additional configs to the config subdirectory
+
+        Before new configs (and replacement files) are added, files are checked for namespace collisions as well.
+        Additionally, the input, output, and replacement file paths in the configs are updated in such a way that they
+        can be used without further modifications.
+
+        :param List[str] config_list:
+            List of config files to be added to the config subdirectory.
+        """
+        cached_configs = self._query_cached_configs()
+
+        # Extract the config names from the paths
+        config_names = {}
+        replacement_paths = {}
+        for config_path in config_list:
+            config_name = os.path.basename(config_path)
+            config_name = config_name[:-5] if config_name.endswith(".yaml") else config_name
+            config_names[config_path] = config_name
+
+            # Check that we actually can access the file
+            if not os.path.isfile(config_path):
+                print(f"\033[31mERROR: Cannot find '{config_path}'!\033[0m", file=sys.stderr)
+                sys.exit(1)
+
+            rep_file = self._get_replacement_file(config_path)
+            if not os.path.isabs(rep_file):  # Deal with relative replacement files
+                rep_file = os.path.abspath(os.path.join(os.path.dirname(config_path), rep_file))
+            replacement_paths[config_name] = rep_file
+
+            if rep_file is not None and not os.path.isfile(rep_file):
+                print(
+                    f"\033[31mERROR: Cannot find replacement file '{rep_file}' for '{config_path}'!\033[0m",
+                    file=sys.stderr
+                )
+                sys.exit(1)
+
+        # Check config_names for duplicates - both amongst the new ones and with the cached ones
+        cached_config_check = {os.path.splitext(os.path.basename(c))[0] for c in cached_configs}
+        new_config_check = set(config_names.values())
+        if not len(new_config_check) == len(config_names.values()):
+            print(
+                "\033[31mERROR: Multiple configs you submitted have the same filename and cannot be cached!\033[m",
+                file=sys.stderr
+            )
+            sys.exit(1)
+
+        config_intersection = new_config_check & cached_config_check
+        if config_intersection:
+            print(
+                f"\033[31mERROR: Newly added config names clash with the cached configs {config_intersection}!\033[0m",
+                file=sys.stderr
+            )
+            sys.exit(1)
+
+        # Add configs and replacement files, change paths
+        for config_path, config_name in config_names.items():
+            replacement_path = replacement_paths[config_name]
+            new_config_path = os.path.join(self.config_dir, f"{config_name}.yaml")
+            new_replacement_file = f"{config_name}.yaml_REPLACEMENTFILE" if replacement_path is not None else None
+
+            shutil.copy2(config_path, new_config_path)
+            if new_replacement_file is not None:
+                shutil.copy2(replacement_path, os.path.join(self.config_dir, new_replacement_file))
+            self._update_paths_in_config(new_config_path, new_replacement_file)
+
+    def _query_cached_configs(self) -> List[str]:
+        """Retrieves config files from config folder
+
+        For this, the function also discards files ending with `_REPLACEMENTFILE` - i.e. the replacement files.
+
+        :returns:
+            List of cached config files.
+        :rtype: List[str]
+        """
+        file_list = [f for f in os.listdir(self.config_dir)
+                     if os.path.isfile(os.path.join(self.config_dir, f))]
+
+        # Now remove all replacement files and return the remainder
+        return [f for f in file_list if not f.endswith('_REPLACEMENTFILE')]
+
+    def _get_replacement_file(self, config_path) -> Optional[str]:
+        """Crawls config to find a possible replacement file
+
+        :param str config_path:
+            Path to the config to be crawled.
+
+        :returns:
+            Either a path to the replacement file found under the key `ReplacementFile` in the config
+            or `None` in case no such setting was found.
+        :rtype: str or None
+        """
+
+        with open(config_path) as f:
+            for line in f:
+                matches = self._rep_regex.search(line)
+                if matches is not None:  # Break if we found a replacement file
+                    break
+
+        return None if matches is None else matches['value']
+
+    def _update_paths_in_config(self, config_path, new_replacement_file=None):
+        """Updates replacement file and output directory for newly cached config.
+
+        :param str config_path:
+            Config file to modify.
+        :param str or None new_replacement_file:
+            Name of relocated replacement file of the config. By default, it is assumed that the config file does not
+            need a replacement file.
+
+        :raises KeyError:
+            If no replacement file name was submitted, but needed by the config file.
+        """
+        # Use relative paths and ensure that folder paths end in `/`
+        rel_workspace_dir_slash = os.path.join('..', self.SUB_DIRS['results'], '')
+
+        # Use temporary file for safety
+        temp_file_handle, temp_file_path = tempfile.mkstemp()
+
+        with open(temp_file_handle, 'w') as temp_file, open(config_path) as orig_file:
+            for line in orig_file:
+                # This is where the matching magic happens
+                new_line = line
+                rep_match = self._rep_regex.search(line)
+                key_match = self._key_regex.search(line)
+
+                if rep_match is not None:
+                    if new_replacement_file is None:
+                        raise KeyError(f"No replacement file submitted for '{config_path}' but required!")
+                    new_line = line.replace(rep_match['value'], new_replacement_file)
+                elif key_match is not None:
+                    # First make sure that we only change paths for the correct keys
+                    if key_match['key'] not in self.CONFIG_KEYS_TO_PATH_CONVERT:
+                        pass
+                    else:
+                        if key_match['quote'] == '"':  # Check if we need to add in quotes after the fact
+                            new_line = line.replace(key_match['value'], rel_workspace_dir_slash)
+                        else:
+                            new_line = line.replace(key_match['value'], f"\"{rel_workspace_dir_slash}\"")
+
+                temp_file.write(new_line)
+
+        # Copy the file permissions from the old file to the new file
+        shutil.copymode(config_path, temp_file_path)
+        # Move files
+        temp_storage = f"{config_path}.swp"
+        shutil.move(config_path, temp_storage)
+        shutil.move(temp_file_path, config_path)
+        # Finally, remove original config file
+        os.remove(temp_storage)
+
+    def _make_syst_bundle(self, systematics_list) -> Dict[str, str]:
         """Bundles systematics into groups to reduce file I/O load
 
         The systematics will be bundled with `num_syst_per_job` systematics per bundle. Systematics are separated by `,`
-        as per TRExFitter conventions.
+        as per TRExFitter conventions. Per bundle, a name for the bundle-suffix is also generated.
 
         :param List[str] systematics_list:
             List of systematics to be bundled.
 
         :returns
             List of bundles systematics separated by `,`.
-        :rtype: list of str
+        :rtype: dict of str and str
         """
-        syst_bundles = []
+        syst_bundles = {}
         tmp_syst_list = []
+        bundle_counter = 0  # Needed for easily parseable bundles in case of multiple systematics per job
+
+        assert self.num_syst_per_job is not None, "Something with the systematics processing has gone very wrong!"
 
         for syst in systematics_list:
-            if len(tmp_syst_list) < self.num_syst_per_job:
-                tmp_syst_list.append(syst)
-            else:
-                syst_bundles.append(','.join(tmp_syst_list))
+            if self.num_syst_per_job == 1:  # The easy case: Only one systematic per job...
+                syst_bundles[syst] = syst
+                bundle_counter += 1
+                continue
+
+            if len(tmp_syst_list) == self.num_syst_per_job:
+                syst_bundles[f"Syst_group_{bundle_counter:04d}"] = ','.join(tmp_syst_list)
+                bundle_counter += 1
                 tmp_syst_list.clear()
+            elif len(tmp_syst_list) > self.num_syst_per_job:
+                raise RuntimeError("Somehow, we ended up with too many systematics in the bundle here!")
+
+            tmp_syst_list.append(syst)  # Do not forget the current systematic!
 
         # Final fill with possible left-over systematics
         if tmp_syst_list:
-            syst_bundles.append(','.join(tmp_syst_list))
+            syst_bundles[f"Syst_group_{bundle_counter:04d}"] = ','.join(tmp_syst_list)
+            bundle_counter += 1
+
+        assert len(syst_bundles) == bundle_counter
 
         return syst_bundles
 
@@ -370,8 +595,8 @@ class TRExSubmit:
                     continue
 
                 # Build lists of systematics to be put into each file
-                for syst_bundle in self._make_syst_bundle(region_syst_dict['systs']):
-                    outlines.append(f"{config} {short_config} {region} {syst_bundle}")
+                for bundle_name, syst_bundle in sorted(self._make_syst_bundle(region_syst_dict['systs']).items()):
+                    outlines.append(f"{config} {short_config} {region} {bundle_name} {syst_bundle}")
 
         with open(job_filename, 'w') as f:
             f.write('\n'.join(outlines))
@@ -392,7 +617,7 @@ class TRExSubmit:
 
         # Add all options in sequence
         opts = ['Regions=${region}'] if self.split_regions else []
-        opts += ['Systematics=${syst}', 'SaveSuffix=_${syst}'] if self.split_systs else []
+        opts += ['Systematics=${systs}', 'SaveSuffix=_${suffix}'] if self.split_systs else []
         opts += [] if extra_opts is None else list(extra_opts)
         option_string = ":".join(opts)
 
@@ -405,8 +630,10 @@ class TRExSubmit:
             if self.split_regions:
                 f.write("region=${2:?Region should be supplied as the second parameter but was not!}\n")
             if self.split_systs:
-                f.write("syst=${3:?Systematic should be supplied as the third parameter but was not!}\n")
+                f.write("suffix=${3:?Suffix should be supplied as the third parameter but was not!}\n")
+                f.write("systs=${4:?Systematics should be supplied as the fourth parameter but were not!}\n")
             f.write("\n")
+            f.write(f"cd {self.config_dir}\n")  # Make the relative config paths work for us
             f.write(f"source {trex_setup_path}\n")
             # We should now have `trex-fitter` in our PATH, so can simply call it directly
             f.write(f"trex-fitter {actions} ${{config}} \"{option_string}\"\n")
@@ -466,10 +693,10 @@ class TRExSubmit:
         arguments = [arguments] if isinstance(arguments, str) else arguments
 
         # Need all arguments coming from the file containing them
-        job_file_args = ["Config", "ShortConfig"] + self.GRANULARITY_ARGS[granularity]
+        job_file_args = self.GRANULARITY_ARGS[granularity]['job_file']
 
         # We don't need the ShortConfig for the bash-scripts
-        job_option_args = ["Config"] + self.GRANULARITY_ARGS[granularity]
+        job_option_args = self.GRANULARITY_ARGS[granularity]['script_args']
         job_option_args = [f"$({value})" for value in job_option_args]
 
         submit_args = job_option_args
@@ -477,7 +704,7 @@ class TRExSubmit:
         submit_arg_string = ' '.join(submit_args)
 
         # We don't want the full Config path for the logs
-        log_job_args = ["ShortConfig"] + self.GRANULARITY_ARGS[granularity]
+        log_job_args = self.GRANULARITY_ARGS[granularity]['log_args']
         log_job_args = [f"$({value})" for value in log_job_args]
         log_job_options = '.'.join(log_job_args)
 
@@ -515,9 +742,21 @@ class TRExSubmit:
 
     # Arguments supplied to batch-system scripts for different granularities (have to be listed in a job-file then)
     GRANULARITY_ARGS = {
-        'global': [],
-        'region': ['Region'],
-        'syst':   ['Region', 'Systematic'],
+        'global': {
+            'job_file':    ['Config', 'ShortConfig'],
+            'script_args': ['Config'],
+            'log_args':    ['ShortConfig'],
+        },
+        'region': {
+            'job_file':    ['Config',      'ShortConfig', 'Region'],
+            'script_args': ['Config',      'Region'],
+            'log_args':    ['ShortConfig', 'Region'],
+        },
+        'syst': {
+            'job_file':    ['Config',      'ShortConfig', 'Region', 'Suffix', 'Systematics'],
+            'script_args': ['Config',      'Region',      'Suffix', 'Systematics'],
+            'log_args':    ['ShortConfig', 'Region',      'Suffix'],
+        },
     }
 
     SUB_DIRS = {
@@ -526,6 +765,11 @@ class TRExSubmit:
         'configs': 'configs',
         'results': 'results',
     }
+
+    CONFIG_KEYS_TO_PATH_CONVERT = [
+        'OutputDir',
+        'InputFolder',
+    ]
 
 
 if __name__ == "__main__":
@@ -537,23 +781,30 @@ if __name__ == "__main__":
         'trex_path', type=os.path.abspath, help='Path to the root folder of the TRExFitter repo to use.')
     parser.add_argument(
         'actions',
-        help='Actions to be carried out by TRexFitter. Common options are `n` (only to be submitted on its own!),'
-             '`f`, `fp`, `wfp`, `dwfp` and their multi-fit equivalents prefixed with `m`, but check the relevant'
+        help='Actions to be carried out by TRexFitter. Common options are `n` (only to be submitted on its own!), '
+             '`f`, `fp`, `wfp`, `dwfp` and their multi-fit equivalents prefixed with `m`, but check the relevant '
              'TRExFitter docs under https://trexfitter-docs.web.cern.ch for a full description.'
     )
     parser.add_argument(
         '-c', '--config', metavar='PATH', action='append', dest='trex_configs', type=os.path.abspath,
-        help='TRExFitter config files to use. Can be supplied multiple times.'
+        help='TRExFitter config files to use. Can be supplied multiple times. If `integrate-everything` is not active '
+             'or nothing was initialised yet, at least one config has to be supplied.'
     )
     parser.add_argument(
         '-o', '--option', metavar='OPT=VALUE', action='append', default=None, dest='trex_options',
-        help='Extra options to supply to the TRExFitter executable. Must be supplied as'
+        help='Extra options to supply to the TRExFitter executable. Must be supplied as '
              '`<Option>=<Value>[,<Value2> ...]`.'
     )
     parser.add_argument(
         '-w', '--work-dir', metavar='PATH', default=os.path.abspath(os.getcwd()), dest='work_dir', type=os.path.abspath,
-        help='Directory to store configs, scripts, logs, and outputs in. Defaults to current directory'
-             '(currently %(default)s).'
+        help='Directory to store scripts, logs (and configs and outputs for `integrate-everything`) in. Defaults to '
+             'current directory (currently %(default)s).'
+    )
+    parser.add_argument(
+        '--integrate-everything', action='store_true', dest='integrate_everything',
+        help='Instructs jobs to integrate configs and TRExFitter workspace. This then allows subsequent actions to '
+             'make use of them instead of fine-tuning paths in the configs. Only has to be specified once '
+             '(afterwards, subsequent jobs will automatically make use of stored configs and the output).'
     )
     parser.add_argument(
         '-n', '--dry-run', action='store_true', dest='dry_run',
@@ -561,14 +812,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '-t', '--transfer-output', action='store_true', dest='transfer_output',
-        help='Enables transfer of outputs from the HTCondor worker nodes. Needed in case access point and worker nodes'
+        help='Enables transfer of outputs from the HTCondor worker nodes. Needed in case access point and worker nodes '
              'do not share a common filesystem.'
     )
 
     job_split_procedure = parser.add_mutually_exclusive_group()
     job_split_procedure.add_argument(
         '--single-reg-n', action='store_false', dest='split_regions',
-        help='Instructs TRExFitter to carry out the `n`-action in a single job for all regions and systematics.'
+        help='Instructs TRExFitter to carry out the `n`-action in a single job for all regions and systematics. '
              '(Implies option `--single-syst-n`)'
     )
     job_split_procedure.add_argument(
@@ -587,6 +838,7 @@ if __name__ == "__main__":
             args.trex_path,
             args.work_dir,
             args.actions,
+            integrate_everything=args.integrate_everything,
             split_regions=args.split_regions,
             split_systs=args.split_systs,
             num_syst_per_job=args.num_syst_per_job,
