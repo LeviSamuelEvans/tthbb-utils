@@ -35,61 +35,71 @@ import sys
 import os
 import subprocess
 import stat
-
-# from queue_management import count_queue_numbers, get_queue
+# Used for type deduction in the docs
+from typing import List, Dict, Optional
 
 
 class TRExSubmit:
     """Class to steer HTCondor script creation and submission of the resulting jobs.
 
-    Parameters
-    ----------
-    config_list: list of str
+    :param List[str] config_list:
         List of config files to use for TRExFitter.
-    trex_folder: str
+    :param str trex_folder:
         Path to root folder of TRExFitter repo used to run jobs on the batch system.
-    work_dir: str
-        Root directory to store scripts, logs, and results in.
-    actions: str
+    :param str work_dir:
+        Root directory to store scripts, logs, and more in.
+    :param str actions:
         Actions to be executed by TRExFitter.
-    split_regs: bool, optional
+    :param bool or None split_regions:
         Whether to split supported actions by region (`True`) or not (`False`). By default, such actions are split.
-    split_systs: bool, optional
+    :param bool or None split_systs:
         Whether to split supported actions by systematic in each region (`True`) or not (`False`). By default, such
         actions are split.
-    extra_opts: list of str, optional
+    :param List[str] or None extra_opts:
         Extra options to be supplied to the TRExFitter executable. By default, no such options are supplied.
 
-    Methods
-    -------
-    build_and_submit:
+    :func build_and_submit:
         Overall function to create necessary scripts for batch-system submission and execute the resulting jobs.
-
-
     """
     def __init__(self,
                  config_list,
                  trex_folder,
                  work_dir,
                  actions,
-                 split_regs=True,
+                 split_regions=True,
                  split_systs=True,
                  extra_opts=None):
         self.config_list = config_list
         self.trex_folder = trex_folder
         self.work_dir = work_dir
+
+        # Already define the subdirectories
+        self.script_dir = os.path.join(self.work_dir, self.SUB_DIRS["scripts"])
+        self.log_dir = os.path.join(self.work_dir, self.SUB_DIRS["logs"])
+        # Only required if we want to keep configs and TRExFitter workspace in the work directory
+        self.config_dir = os.path.join(self.work_dir, self.SUB_DIRS["configs"])
+        self.workspace_dir = os.path.join(self.work_dir, self.SUB_DIRS["results"])
+
+        # Make the work directory (pass if it's already present but fail if the parent directory is not there)
+        try:
+            os.mkdir(self.work_dir)
+        except FileExistsError:
+            pass
+
+        # Read actions and make sure the `n` step is executed alone only to not have thousands of job failures from this
         self.actions = actions
-        # Make sure the `n` step is executed alone only to not have thousands of job failures from this
         if 'n' in self.actions and not self.actions == 'n':
             print(
-                f"ERROR: N-tuple translation action `n` should only be used alone, you used `{self.actions}`!",
+                f"\033[31mERROR: N-tuple translation action `n` should only be used alone, you used `{self.actions}`!"
+                f"\033[0m",
                 file=sys.stderr
             )
             sys.exit(1)
+
         # It only makes sense to run regions separated if we have the `n` action included
-        self.split_regs = split_regs if self.actions == 'n' else False
+        self.split_regions = split_regions if self.actions == 'n' else False
         # We automatically run systematics together if we run regions together
-        self.split_systs = split_systs and self.split_regs
+        self.split_systs = split_systs and self.split_regions
         self.extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
         # Associate regions and systematics with config files (and check that we only have each region once)
@@ -97,7 +107,7 @@ class TRExSubmit:
 
         # Build the correct key for the granularity-dict
         self.granularity = 'global'
-        if self.split_regs:
+        if self.split_regions:
             self.granularity = 'region'
         if self.split_systs:
             self.granularity = 'syst'
@@ -108,40 +118,39 @@ class TRExSubmit:
         Uses the values supplied during initialisation to generate HTCondor submit scripts and the actual bash-scripts
         to run on the worker nodes. Afterwards, submits the jobs if we are not in a dry-run.
 
-        Parameters
-        ----------
-        dry_run: bool, optional
+        :param bool or None dry_run:
             Whether to actually submit the prepared jobs (`False`) or not (`True`). By default, the jobs are submitted
             to HTCondor.
-        stage_out_results: bool, optional
+        :param bool or None stage_out_results:
             Whether results of the fits need to be staged out of the worker nodes (`True`, in case access point and
             worker node don't share a filesystem) or not (`False`). By default, no need to stage out results is assumed.
         """
-        script_dir = os.path.join(self.work_dir, 'HTCondor')
-        log_dir = os.path.join(self.work_dir, "logs")
-        # Only required to move our results on systems where access points and worker nodes don't share a filesystem
-        result_dir = os.path.join(self.work_dir, "results")
+        os.makedirs(self.script_dir, exist_ok=True)
+        os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(self.workspace_dir, exist_ok=True)
 
-        os.makedirs(script_dir, exist_ok=True)
-        os.makedirs(log_dir, exist_ok=True)
-        os.makedirs(result_dir, exist_ok=True)
-
-        condor_result_dir = result_dir if stage_out_results else None
+        condor_result_dir = self.workspace_dir if stage_out_results else None
 
         # Define custom output folder in TRExFitter CL-options if we have a shared filesystem
         if not stage_out_results and self.extra_opts is None:
-            self.extra_opts = f"OutputDir={result_dir}"
+            self.extra_opts = f"OutputDir={self.workspace_dir}"
         elif not stage_out_results:
-            self.extra_opts += [f"OutputDir={result_dir}"]
+            self.extra_opts += [f"OutputDir={self.workspace_dir}"]
 
-        job_file = os.path.join(script_dir, f"job_arguments_{self.actions}.txt")
-        script_file = os.path.join(script_dir, f"script_{self.actions}.sh")
-        submit_file = os.path.join(script_dir, f"submit_{self.actions}.sub")
+        job_file = os.path.join(self.script_dir, f"job_arguments_{self.actions}.txt")
+        script_file = os.path.join(self.script_dir, f"script_{self.actions}.sh")
+        submit_file = os.path.join(self.script_dir, f"submit_{self.actions}.sub")
 
-        self._build_job_file(self.config_region_syst_dict, job_file, self.split_regs, self.split_systs)
+        self._build_job_file(self.config_region_syst_dict, job_file)
         self._write_batch_bash(script_file, self.actions, self.extra_opts)
-        self.write_htc_submit(
-                submit_file, script_file, job_file, log_dir, result_dir=condor_result_dir, granularity=self.granularity)
+        self._write_htc_submit(
+                submit_file,
+                script_file,
+                job_file,
+                self.log_dir,
+                result_dir=condor_result_dir,
+                granularity=self.granularity
+        )
 
         if dry_run:
             print(f"INFO: In dry-run, submit files can be found in {self.work_dir}")
@@ -150,7 +159,7 @@ class TRExSubmit:
             proc = subprocess.run(["condor_submit", submit_file], stdout=sys.stdout, stderr=sys.stderr)
             sys.exit(proc.returncode)
 
-    def _get_config_region_syst_dict(self, config_list):
+    def _get_config_region_syst_dict(self, config_list) -> Dict[str, Dict[str, List[str]]]:
         """Retrieves regions and systematics from multiple TRExFitter configs and checks region uniqueness
 
         The dictionary returned by this function has the following form:
@@ -163,21 +172,15 @@ class TRExSubmit:
         The function raises an error if some region is present in multiple configs, as this will mess up
         ntuple-histogram conversion.
 
-        Parameters
-        ----------
-        config_list: list of str
+        :param List[str] config_list:
             List of TRExFitter config paths.
 
-        Returns
-        -------
-        dict:
+        :returns:
             Dictionary associating regions and systematics to the configs in the schema described above.
+        :rtype: Dict[str, Dict[str, List[str]]]
 
-        Raises
-        ------
-        RuntimeError:
+        :raises RuntimeError:
             If some region is present in multiple configs.
-
         """
         region_check_set = set()
         config_region_syst_dict = {}
@@ -203,18 +206,15 @@ class TRExSubmit:
         return config_region_syst_dict
 
     @staticmethod
-    def _get_region_list(config):
+    def _get_region_list(config) -> List[str]:
         """Retrieves regions from TRExFitter config
 
-        Parameters
-        ----------
-        config: str
+        :param str config:
             Path to TRExFitter config.
 
-        Returns
-        -------
-        list of str:
+        :returns:
             List of regions in config.
+        :rtype: List[str]
         """
         region_list = []
 
@@ -240,18 +240,15 @@ class TRExSubmit:
         return region_list
 
     @staticmethod
-    def _get_syst_list(config):
+    def _get_syst_list(config) -> List[str]:
         """Retrieves systematics from TRExFitter config
 
-        Parameters
-        ----------
-        config: str
+        :param str config:
             Path to TRExFitter config.
 
-        Returns
-        -------
-        list of str:
+        :returns:
             List of systematics in config.
+        :rtype: List[str]
         """
         syst_list = []
 
@@ -276,40 +273,35 @@ class TRExSubmit:
 
                     syst_list.append(syst)
 
-        print(f"INFO: Systematics found in '{config}':")
-        for syst in syst_list:
-            print(f"      - {syst}")
+        # Only print systematics if we found any
+        if not syst_list:
+            print(f"INFO: No systematics found in '{config}'")
+        else:
+            print(f"INFO: Systematics found in '{config}':")
+            for syst in syst_list:
+                print(f"      - {syst}")
 
         return syst_list
 
-    @staticmethod
-    def _build_job_file(config_region_syst_dict, job_filename, split_regions=False, split_systs=False):
+    def _build_job_file(self, config_region_syst_dict, job_filename):
         """Generates a file containing the job information needed by condor_submit
 
-        Parameters
-        ----------
-        config_region_syst_dict: dict
+        :param Dict[str, Dict[str, List[str]]] config_region_syst_dict:
             Dictionary with config file names and associated regions and systematics in the schema returned by
             `_get_config_region_syst_dict`.
-        job_filename: str
+        :param str job_filename:
             Path to the script folder of the output directory.
-        split_regions: bool, optional
-            Whether to split the jobs by region (`True`) or not (`False`). By default, job information is not split by
-            region.
-        split_systs: bool, optional
-            Whether to split the jobs by systematic (`True`) or not (`False`). By default, job information is not split
-            by systematic. This option only has an effect if `split_regions` is enabled.
         """
         outlines = []
 
         for config, region_syst_dict in config_region_syst_dict.items():
             short_config = os.path.splitext(os.path.basename(config))[0].replace('.', '_')
-            if not split_regions:
+            if not self.split_regions:
                 outlines.append(f"{config} {short_config}")
                 continue
 
             for region in region_syst_dict['regions']:
-                if not split_systs:
+                if not self.split_systs:
                     outlines.append(f"{config} {short_config} {region}")
                     continue
 
@@ -322,21 +314,19 @@ class TRExSubmit:
     def _write_batch_bash(self, script_path, actions, extra_opts=None):
         """Writes bash-script executed on HTCondor
 
-        Parameters
-        ----------
-        script_path: str
+        :param str script_path:
             Filepath of the bash-script to be generated.
-        actions: str
+        :param str actions:
             TRExFitter actions to be executed.
-        extra_opts: list of str, optional
-            Additional options to be supplied to TRExFitter in the format `<Option>=<Value>`. By default, no additional
-            options are supplied.
+        :param List[str] or str or None extra_opts:
+            Additional options to be supplied to TRExFitter in the format `<Option>=<Value>[,<Value2> ...]`.
+            By default, no additional options are supplied.
         """
         # Make sure we don't split up strings later
         extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
         # Add all options in sequence
-        opts = ['Regions=${region}'] if self.split_regs else []
+        opts = ['Regions=${region}'] if self.split_regions else []
         opts += ['Systematics=${syst}', 'SaveSuffix=_${syst}'] if self.split_systs else []
         opts += [] if extra_opts is None else list(extra_opts)
         option_string = ":".join(opts)
@@ -347,7 +337,7 @@ class TRExSubmit:
             f.write("#!/bin/bash\n\n")
             # Get config (and region and systematic, if applicable), complain if we cannot
             f.write("config=${1:?Config should be supplied as the first parameter but was not!}\n")
-            if self.split_regs:
+            if self.split_regions:
                 f.write("region=${2:?Region should be supplied as the second parameter but was not!}\n")
             if self.split_systs:
                 f.write("syst=${3:?Systematic should be supplied as the third parameter but was not!}\n")
@@ -361,50 +351,51 @@ class TRExSubmit:
         # Lastly, we also have to make the script executable
         os.chmod(script_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
 
-    def write_htc_submit(self,
-                         submit_file_path,
-                         script_path,
-                         job_file,
-                         log_dir,
-                         result_dir=None,
-                         granularity='global',
-                         arguments=None,
-                         run_time=None,
-                         num_cpu=None,
-                         universe='vanilla'):
+    def _write_htc_submit(self,
+                          submit_file_path,
+                          script_path,
+                          job_file,
+                          log_dir,
+                          result_dir=None,
+                          granularity='global',
+                          arguments=None,
+                          run_time=None,
+                          num_cpu=None,
+                          universe='vanilla'):
         """Generates an HTCondor submission file
 
-        Parameters
-        ----------
-        submit_file_path: str
+        :param str submit_file_path:
             Filepath of the HTCondor submit file to be generated.
-        script_path: str
+        :param str script_path:
             Filepath of the bash-script to be executed on the worker node(s).
-        job_file: str
+        :param str job_file:
             Filepath of the file containing argument information for the individual jobs.
-        log_dir: str
+        :param str log_dir:
             Path to the folder in which logs should be saved.
-        result_dir: str, optional
+        :param str or None result_dir:
             Path to the folder into which results should be transferred if no shared filesystem between access point and
             worker nodes is available. By default, no file output transfer is performed.
-        granularity: ['global', 'region', 'syst'], optional
+        :param str or None granularity:
             Granularity, with which jobs should be launched. Here, `global` refers to a single job per config, `region`
             to one job per region, and `syst` to one job per systematic in each region. This has to be tuned to the
             information content of the `job_file`. By default, `global` granularity is used.
-        arguments: list of str
+        :param List[str] or str or None arguments:
             Extra arguments to be supplied to the bash-script. By default, no extra arguments are supplied beyond the
             job arguments from `job_file`.
-        run_time: int, optional
+        :param int or None run_time:
             Non-standard run-time to be requested for the jobs.
-        num_cpu: int, optional
+        :param int or None num_cpu:
             Non-standard amount of CPU cores to be requested for the jobs.
-        universe: str, optional
+        :param str or None universe:
             Universe to run the HTCondor jobs in. By default, `vanilla` universe is used.
+
+        :raises KeyError:
+            If `granularity` is not a key of `GRANULARITY_ARGS`.
         """
         # Check if the granularity makes sense
         if granularity not in self.GRANULARITY_ARGS:
-            raise KeyError(f"ERROR: Unknown granularity '{granularity}'"
-                           f"(Options are : {self.GRANULARITY_ARGS.keys()})!")
+            raise KeyError(f"\033[31mERROR: Unknown granularity '{granularity}'"
+                           f"(Options are : {self.GRANULARITY_ARGS.keys()})!\033[0m")
 
         # Build arguments (first cluster and job ID, then possible arguments from the job_file, then anything else)
         arguments = [arguments] if isinstance(arguments, str) else arguments
@@ -425,9 +416,9 @@ class TRExSubmit:
         log_job_args = [f"$({value})" for value in log_job_args]
         log_job_options = '.'.join(log_job_args)
 
-        logpath = os.path.join(log_dir, f'TRExFitter.{self.actions}.$(ClusterId).log')
-        outpath = os.path.join(log_dir, f'TRExFitter.{self.actions}.$(ClusterId).$(ProcId).{log_job_options}.out')
-        errpath = os.path.join(log_dir, f'TRExFitter.{self.actions}.$(ClusterId).$(ProcId).{log_job_options}.err')
+        log_path = os.path.join(log_dir, f'TRExFitter.{self.actions}.$(ClusterId).log')
+        out_path = os.path.join(log_dir, f'TRExFitter.{self.actions}.$(ClusterId).$(ProcId).{log_job_options}.out')
+        err_path = os.path.join(log_dir, f'TRExFitter.{self.actions}.$(ClusterId).$(ProcId).{log_job_options}.err')
 
         with open(submit_file_path, 'w') as f:
             f.write(f"universe = {universe}\n")
@@ -435,9 +426,9 @@ class TRExSubmit:
             f.write(f"arguments = {submit_arg_string}\n\n")
 
             f.write("\n")
-            f.write(f"log = {logpath}\n")
-            f.write(f"output = {outpath}\n")
-            f.write(f"error = {errpath}\n\n")
+            f.write(f"log = {log_path}\n")
+            f.write(f"output = {out_path}\n")
+            f.write(f"error = {err_path}\n\n")
 
             # Only transfer files if needed
             if result_dir is not None:
@@ -464,6 +455,13 @@ class TRExSubmit:
         'syst':   ['Region', 'Systematic'],
     }
 
+    SUB_DIRS = {
+        'scripts': 'scripts',
+        'logs':    'logs',
+        'configs': 'configs',
+        'results': 'results',
+    }
+
 
 if __name__ == "__main__":
     import argparse
@@ -484,21 +482,13 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         '-o', '--option', metavar='OPT=VALUE', action='append', default=None, dest='trex_options',
-        help='Extra options to supply to the TRExFitter executable. Must be supplied as `<Option>=<Value>`.'
+        help='Extra options to supply to the TRExFitter executable. Must be supplied as'
+             '`<Option>=<Value>[,<Value2> ...]`.'
     )
     parser.add_argument(
         '-w', '--work-dir', metavar='PATH', default=os.path.abspath(os.getcwd()), dest='work_dir', type=os.path.abspath,
         help='Directory to store configs, scripts, logs, and outputs in. Defaults to current directory'
              '(currently %(default)s).'
-    )
-    parser.add_argument(
-        '--single-reg-n', action='store_false', dest='split_reg',
-        help='Instructs TRExFitter to carry out the `n`-action in a single job for all regions and systematics.'
-             '(Implies option `--single-syst-n`)'
-    )
-    parser.add_argument(
-        '--single-syst-n', action='store_false', dest='split_syst',
-        help='Instructs TRExFitter to carry out the `n`-action in a single job for all systematics per region.'
     )
     parser.add_argument(
         '-n', '--dry-run', action='store_true', dest='dry_run',
@@ -510,10 +500,21 @@ if __name__ == "__main__":
              'do not share a common filesystem.'
     )
 
+    job_split_procedure = parser.add_mutually_exclusive_group()
+    job_split_procedure.add_argument(
+        '--single-reg-n', action='store_false', dest='split_regions',
+        help='Instructs TRExFitter to carry out the `n`-action in a single job for all regions and systematics.'
+             '(Implies option `--single-syst-n`)'
+    )
+    job_split_procedure.add_argument(
+        '--single-syst-n', action='store_false', dest='split_systs',
+        help='Instructs TRExFitter to carry out the `n`-action in a single job for all systematics per region.'
+    )
+
     args = parser.parse_args()
 
     if len(args.trex_configs) == 0:
-        print("ERROR: You need to supply at least one config!", file=sys.stderr)
+        print("\033[31mERROR: You need to supply at least one config!\033[0m", file=sys.stderr)
         sys.exit(1)
 
     submit_jobs = TRExSubmit(
@@ -521,8 +522,8 @@ if __name__ == "__main__":
             args.trex_path,
             args.work_dir,
             args.actions,
-            split_regs=args.split_reg,
-            split_systs=args.split_syst,
+            split_regions=args.split_regions,
+            split_systs=args.split_systs,
             extra_opts=args.trex_options
     )
     submit_jobs.build_and_submit(dry_run=args.dry_run, stage_out_results=args.transfer_output)
