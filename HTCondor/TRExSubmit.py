@@ -222,6 +222,8 @@ class TRExSubmit:
             for line in conf:
                 line = line.split('%')[0].strip()
 
+                if line.startswith('#'):
+                    continue
                 if 'Region:' not in line or 'FitRegion' in line:
                     continue
 
