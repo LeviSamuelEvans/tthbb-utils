@@ -25,6 +25,8 @@
       respected
     - Detection of configs without systematics to fix a no-submission bug in these cases
     - Possibility to bundle multiple systematics per batch-job to reduce I/O load on ntuple files
+    - Option to select configs to run in jobs (mostly for multi-fit support)
+    - Possibility to run ranking jobs per systematic
 
 Develop in this branch then merge in once ready.
 
@@ -42,6 +44,7 @@ import subprocess
 import stat
 import shutil
 import re
+from difflib import get_close_matches
 # Used for type deduction in the docs
 from typing import List, Dict, Optional
 
@@ -71,9 +74,6 @@ class TRExSubmit:
         is engaged.
     :param List[str] or None extra_opts:
         Extra options to be supplied to the TRExFitter executable. By default, no such options are supplied.
-
-    :func build_and_submit:
-        Overall function to create necessary scripts for batch-system submission and execute the resulting jobs.
     """
     def __init__(self,
                  config_list,
@@ -114,7 +114,7 @@ class TRExSubmit:
 
         # Read actions and make sure the `n` step is executed alone only to not have thousands of job failures from this
         self.actions = actions
-        if 'n' in self.actions and not self.actions == 'n':
+        if self.actions is not None and 'n' in self.actions and not self.actions == 'n':
             print(
                 f"\033[31mERROR: N-tuple translation action `n` should only be used alone, you used `{self.actions}`!"
                 f"\033[0m",
@@ -127,7 +127,7 @@ class TRExSubmit:
 
         # Check if we got any configs if we don't integrate
         if not self.integrate_everything and not self.config_list:
-            print("\033[31mERROR: You cannot run in non-integrated mode without configs!\033[0m", file=sys.stderr)
+            print("\033[31mERROR: You cannot work in non-integrated mode without configs!\033[0m", file=sys.stderr)
             sys.exit(1)
 
         # We need to transfer configs and query everything if we want to integrate everything into the work directory
@@ -139,24 +139,22 @@ class TRExSubmit:
 
         # It only makes sense to run regions separated if we have the `n` action included
         self.split_regions = split_regions if self.actions == 'n' else False
-        # We automatically run systematics together if we run regions together
-        self.split_systs = split_systs and self.split_regions
+        # We automatically run systematics together if we run regions together (unless in 'r' mode)
+        self.split_systs = split_systs if 'r' in self.actions else False
+        self.split_systs = (split_systs and self.split_regions) if 'n' in self.actions else self.split_systs
         self.num_syst_per_job = num_syst_per_job if self.split_systs else None
         self.extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
-        # Associate regions and systematics with config files (and check that we only have each region once)
-        self.config_region_syst_dict = self._get_config_region_syst_dict(self.config_list)
-        # Now check that we have at least one systematic - or disable the split by systematics
-        self._check_update_systematic_split(self.config_region_syst_dict)
-
         # Build the correct key for the granularity-dict
         self.granularity = 'global'
-        if self.split_regions:
+        if self.split_regions and not self.split_systs:
             self.granularity = 'region'
-        if self.split_systs:
+        elif self.split_regions and self.split_systs:
             self.granularity = 'syst'
+        elif not self.split_regions and self.split_systs:
+            self.granularity = 'ranking'
 
-    def build_and_submit(self, dry_run=False, stage_out_results=False):
+    def build_and_submit(self, dry_run=False, config_list=None, stage_out_results=False):
         """Execute the job submission
 
         Uses the values supplied during initialisation to generate HTCondor submit scripts and the actual bash-scripts
@@ -165,10 +163,26 @@ class TRExSubmit:
         :param bool or None dry_run:
             Whether to actually submit the prepared jobs (`False`) or not (`True`). By default, the jobs are submitted
             to HTCondor.
+        :param List[str] or None config_list:
+            List of cached (and newly supplied) configs to use for TRExFitter jobs. By default, all found cached configs
+            are used by the jobs.
         :param bool or None stage_out_results:
             Whether results of the fits need to be staged out of the worker nodes (`True`, in case access point and
             worker node don't share a filesystem) or not (`False`). By default, no need to stage out results is assumed.
         """
+        if not self.integrate_everything and config_list is not None:
+            print(
+                "\033[33mWARNING: Explicit config list to run supplied even though we are not running in integrated "
+                "mode! This will have no effect!\033[0m",
+                file=sys.stderr
+            )
+        elif config_list is not None:
+            self._match_update_config_list(config_list)
+
+        # Associate regions and systematics with config files (and check that we only have each region once)
+        self.config_region_syst_dict = self._get_config_region_syst_dict(self.config_list)
+        # Now check that we have at least one systematic - or disable the split by systematics
+        self._check_update_systematic_split(self.config_region_syst_dict)
 
         os.makedirs(self.script_dir, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
@@ -538,7 +552,7 @@ class TRExSubmit:
         :param List[str] systematics_list:
             List of systematics to be bundled.
 
-        :returns
+        :returns:
             List of bundles systematics separated by `,`.
         :rtype: dict of str and str
         """
@@ -572,6 +586,47 @@ class TRExSubmit:
 
         return syst_bundles
 
+    def _match_update_config_list(self, new_list):
+        """Matches the current config list with the input list for selecting configs
+
+        :param List[str] new_list:
+            List of configs to match with the current config region-systematics dictionary.
+        """
+        tmp_config_list = []
+        cached_config_list = [os.path.basename(c) for c in self.config_list]
+
+        for config in new_list:
+            if config not in cached_config_list:  # Go through suggestions interactively to find possible matches
+                tmp_config = None
+                cached_string = '\n        - '.join(cached_config_list)
+                possible_matches = get_close_matches(config, cached_config_list)
+                for match in possible_matches:
+                    answer = input(f"INFO: Could not find '{config}' directly! Did you mean '{match}'? [yN]").lower()
+                    if answer == 'y':
+                        tmp_config = match
+                        break
+
+                # Error case when no suggestion fits
+                if tmp_config is None:
+                    print(
+                        f"\033[31mERROR: Could not find '{config}' directly! The following configs are cached:\n"
+                        f"        - {cached_string}\033[0m")
+                    sys.exit(1)
+            else:
+                tmp_config = config
+
+            tmp_config_path = os.path.join(self.config_dir, tmp_config)
+            if tmp_config_path in tmp_config_list:
+                print(
+                    f"\033[33mWARNING: Config '{tmp_config}' already matched! Please check your setup!\033[0m",
+                    file=sys.stderr
+                )
+            else:
+                tmp_config_list.append(tmp_config_path)
+
+        # Finally, update the class member with the selected configs
+        self.config_list = tmp_config_list
+
     def _build_job_file(self, config_region_syst_dict, job_filename):
         """Generates a file containing the job information needed by condor_submit
 
@@ -585,18 +640,20 @@ class TRExSubmit:
 
         for config, region_syst_dict in config_region_syst_dict.items():
             short_config = os.path.splitext(os.path.basename(config))[0].replace('.', '_')
-            if not self.split_regions:
-                outlines.append(f"{config} {short_config}")
-                continue
 
-            for region in region_syst_dict['regions']:
-                if not self.split_systs:
-                    outlines.append(f"{config} {short_config} {region}")
-                    continue
-
-                # Build lists of systematics to be put into each file
+            if self.split_regions:
+                for region in region_syst_dict['regions']:
+                    if self.split_systs:
+                        # Build lists of systematics to be put into each file
+                        for bundle_name, syst_bundle in sorted(self._make_syst_bundle(region_syst_dict['systs']).items()):
+                            outlines.append(f"{config} {short_config} {region} {bundle_name} {syst_bundle}")
+                    else:
+                        outlines.append(f"{config} {short_config} {region}")
+            elif self.split_systs:
                 for bundle_name, syst_bundle in sorted(self._make_syst_bundle(region_syst_dict['systs']).items()):
-                    outlines.append(f"{config} {short_config} {region} {bundle_name} {syst_bundle}")
+                    outlines.append(f"{config} {short_config} {bundle_name} {syst_bundle}")
+            else:
+                outlines.append(f"{config} {short_config}")
 
         with open(job_filename, 'w') as f:
             f.write('\n'.join(outlines))
@@ -617,7 +674,8 @@ class TRExSubmit:
 
         # Add all options in sequence
         opts = ['Regions=${region}'] if self.split_regions else []
-        opts += ['Systematics=${systs}', 'SaveSuffix=_${suffix}'] if self.split_systs else []
+        opts += ['Systematics=${systs}', 'SaveSuffix=_${suffix}'] if self.split_systs and self.split_regions else []
+        opts += ['Ranking=${systs}'] if self.split_systs and not self.split_regions else []
         opts += [] if extra_opts is None else list(extra_opts)
         option_string = ":".join(opts)
 
@@ -629,9 +687,11 @@ class TRExSubmit:
             f.write("config=${1:?Config should be supplied as the first parameter but was not!}\n")
             if self.split_regions:
                 f.write("region=${2:?Region should be supplied as the second parameter but was not!}\n")
-            if self.split_systs:
+            if self.split_systs and self.split_regions:
                 f.write("suffix=${3:?Suffix should be supplied as the third parameter but was not!}\n")
                 f.write("systs=${4:?Systematics should be supplied as the fourth parameter but were not!}\n")
+            if self.split_systs and not self.split_regions:
+                f.write("systs=${2:?Systematics should be supplied as the second parameter but were not!}\n")
             f.write("\n")
             f.write(f"cd {self.config_dir}\n")  # Make the relative config paths work for us
             f.write(f"source {trex_setup_path}\n")
@@ -757,6 +817,11 @@ class TRExSubmit:
             'script_args': ['Config',      'Region',      'Suffix', 'Systematics'],
             'log_args':    ['ShortConfig', 'Region',      'Suffix'],
         },
+        'ranking': {
+            'job_file':    ['Config',      'ShortConfig', 'Suffix', 'Systematics'],
+            'script_args': ['Config',      'Systematics'],
+            'log_args':    ['ShortConfig', 'Suffix'],
+        },
     }
 
     SUB_DIRS = {
@@ -778,27 +843,36 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Submits TRexFitter actions to an HTCondor batch system.")
 
     parser.add_argument(
-        'trex_path', type=os.path.abspath, help='Path to the root folder of the TRExFitter repo to use.')
+        'work_dir', metavar='work-dir', type=os.path.abspath,
+        help='Directory to store scripts, logs (and configs and outputs for `integrate-everything`) in.'
+    )
     parser.add_argument(
-        'actions',
+        'trex_path', metavar='trex-path', type=os.path.abspath,
+        help='Path to the root folder of the TRExFitter repo to use.'
+    )
+    parser.add_argument(
+        '-a', '--actions', default=None,
         help='Actions to be carried out by TRexFitter. Common options are `n` (only to be submitted on its own!), '
              '`f`, `fp`, `wfp`, `dwfp` and their multi-fit equivalents prefixed with `m`, but check the relevant '
-             'TRExFitter docs under https://trexfitter-docs.web.cern.ch for a full description.'
+             'TRExFitter docs under https://trexfitter-docs.web.cern.ch for a full description.\n'
+             'If no actions are submitted, only an update of the configs is performed.'
     )
     parser.add_argument(
         '-c', '--config', metavar='PATH', action='append', dest='trex_configs', type=os.path.abspath,
-        help='TRExFitter config files to use. Can be supplied multiple times. If `integrate-everything` is not active '
+        help='TRExFitter config files to load. Can be supplied multiple times. If `integrate-everything` is not active '
              'or nothing was initialised yet, at least one config has to be supplied.'
+    )
+    parser.add_argument(
+        '-u', '--use-config', metavar='CONFIG', action='append', dest='used_configs',
+        help='TRExFitter config files to use in the current action. This option only has an effect if the tool is run '
+             'in integrated mode to select specific configs to run with. The configs should already be present in '
+             'cache or loaded in simultaneously using the `--config` option. No path, only the config name is required!'
+             'If no configs are supplied via this option in integrated mode, all cached configs are used.'
     )
     parser.add_argument(
         '-o', '--option', metavar='OPT=VALUE', action='append', default=None, dest='trex_options',
         help='Extra options to supply to the TRExFitter executable. Must be supplied as '
              '`<Option>=<Value>[,<Value2> ...]`.'
-    )
-    parser.add_argument(
-        '-w', '--work-dir', metavar='PATH', default=os.path.abspath(os.getcwd()), dest='work_dir', type=os.path.abspath,
-        help='Directory to store scripts, logs (and configs and outputs for `integrate-everything`) in. Defaults to '
-             'current directory (currently %(default)s).'
     )
     parser.add_argument(
         '--integrate-everything', action='store_true', dest='integrate_everything',
@@ -818,20 +892,25 @@ if __name__ == "__main__":
 
     job_split_procedure = parser.add_mutually_exclusive_group()
     job_split_procedure.add_argument(
-        '--single-reg-n', action='store_false', dest='split_regions',
+        '--single-reg', action='store_false', dest='split_regions',
         help='Instructs TRExFitter to carry out the `n`-action in a single job for all regions and systematics. '
              '(Implies option `--single-syst-n`)'
     )
     job_split_procedure.add_argument(
-        '--single-syst-n', action='store_false', dest='split_systs',
-        help='Instructs TRExFitter to carry out the `n`-action in a single job for all systematics per region.'
+        '--single-np', action='store_false', dest='split_nps',
+        help='Instructs TRExFitter to carry out the `n`- and `r`-actions in a single job for all nuisance parameters '
+             '(pre region in case of the `n`-action).'
     )
     job_split_procedure.add_argument(
-        '--syst-per-job', metavar='NUM_SYSTS', type=int, default=20, dest='num_syst_per_job',
-        help='How many systematics to run per `n`-job to avoid DDoSing input files. Has no impact on other actions.'
+        '--nps-per-job', metavar='NUM_NPS', type=int, default=20, dest='num_nps_per_job',
+        help='How many nuisance parameters to run per `n`-/`r`-job to avoid DDoSing input files. Has no impact on '
+             'other actions.'
     )
 
     args = parser.parse_args()
+
+    if not args.used_configs:  # Make it explicit that all configs will be used if none are given as parameters
+        args.used_configs = None
 
     submit_jobs = TRExSubmit(
             args.trex_configs,
@@ -840,8 +919,19 @@ if __name__ == "__main__":
             args.actions,
             integrate_everything=args.integrate_everything,
             split_regions=args.split_regions,
-            split_systs=args.split_systs,
-            num_syst_per_job=args.num_syst_per_job,
+            split_systs=args.split_nps,
+            num_syst_per_job=args.num_nps_per_job,
             extra_opts=args.trex_options
     )
-    submit_jobs.build_and_submit(dry_run=args.dry_run, stage_out_results=args.transfer_output)
+
+    if args.actions is None:
+        print(
+            "INFO: No action applied, will only update configs! If you are not running in integrated mode, this will "
+            "not have any effect!"
+        )
+    else:
+        submit_jobs.build_and_submit(
+                dry_run=args.dry_run,
+                config_list=args.used_configs,
+                stage_out_results=args.transfer_output
+        )
