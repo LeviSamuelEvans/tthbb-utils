@@ -303,46 +303,71 @@ class TRExSubmit:
 
         return config_region_syst_dict
 
-    def _get_region_list(self, config) -> List[str]:
+    def _get_region_list(self, config, as_subconfig=False) -> List[str]:
         """Retrieves regions from TRExFitter config
 
         :param str config:
             Path to TRExFitter config.
+        :param bool or None as_subconfig:
+            Whether this function is called for a nested config from another config (`True`) or not (`False`).
 
         :returns:
             List of regions in config.
         :rtype: List[str]
         """
-        region_list = []
+        tmp_region_list = []
+        sub_config_list = []
 
         with open(config) as conf:
             for line in conf:
                 key_match = self._key_regex.search(line)
 
                 if key_match is not None and key_match['key'] == 'Region':
-                    region_list.append(key_match['value'])
+                    tmp_region_list.append(key_match['value'])
+                elif 'm' in self.actions and key_match is not None and key_match['key'] == 'ConfigFile':
+                    # Add in subconfigs into this config
+                    sub_config_list.append(os.path.join(self.config_dir, key_match['value']))
 
-        print(f"INFO: Regions found in '{config}':")
-        for region in region_list:
-            print(f"       - {region}")
+        # Use sets here as regions in nested configs may have common regions
+        region_set = set(tmp_region_list)
+
+        for sub_config in sub_config_list:
+            sub_regions = self._get_region_list(sub_config, as_subconfig=True)
+            region_set.update(sub_regions)
+
+        region_list = sorted(list(region_set))
+
+        if not as_subconfig:
+            print(f"INFO: Regions found in '{config}' (and its nested configs):")
+            for region in region_list:
+                print(f"       - {region}")
 
         return region_list
 
-    @staticmethod
-    def _get_syst_list(config) -> List[str]:
+    def _get_syst_list(self, config, as_subconfig=False) -> List[str]:
         """Retrieves systematics from TRExFitter config
 
         :param str config:
             Path to TRExFitter config.
+        :param bool or None as_subconfig:
+            Whether this function is called for a nested config from another config (`True`) or not (`False`).
 
         :returns:
             List of systematics in config.
         :rtype: List[str]
         """
-        syst_list = []
+        tmp_syst_list = []
+        sub_config_list = []
 
         with open(config) as f:
             for line in f:
+                key_match = self._key_regex.search(line)
+
+                if 'm' in self.actions and key_match is not None and key_match['key'] == 'ConfigFile':
+                    # Add in subconfigs into this config
+                    sub_config_list.append(os.path.join(self.config_dir, key_match['value']))
+                    continue
+
                 line = line.split('%')[0].strip()
 
                 if line.startswith('#'):
@@ -360,13 +385,22 @@ class TRExSubmit:
                     if syst.startswith('"') and syst.endswith('"'):
                         syst = syst[1:-1]  # Remove the double quotes
 
-                    syst_list.append(syst)
+                    tmp_syst_list.append(syst)
+
+        # Use sets here as to not double-count systematics in nested configs
+        syst_set = set(tmp_syst_list)
+
+        for sub_config in sub_config_list:
+            sub_systs = self._get_syst_list(sub_config, as_subconfig=True)
+            syst_set.update(sub_systs)
+
+        syst_list = sorted(list(syst_set))
 
         # Only print systematics if we found any
-        if not syst_list:
+        if not as_subconfig and not syst_list:
             print(f"INFO: No systematics found in '{config}'")
-        else:
-            print(f"INFO: Systematics found in '{config}':")
+        elif not as_subconfig:
+            print(f"INFO: Systematics found in '{config}' (and its nested configs):")
             for syst in syst_list:
                 print(f"      - {syst}")
 
@@ -601,7 +635,7 @@ class TRExSubmit:
                 cached_string = '\n        - '.join(cached_config_list)
                 possible_matches = get_close_matches(config, cached_config_list)
                 for match in possible_matches:
-                    answer = input(f"INFO: Could not find '{config}' directly! Did you mean '{match}'? [yN]").lower()
+                    answer = input(f"INFO: Could not find '{config}' directly! Did you mean '{match}'? [yN] ").lower()
                     if answer == 'y':
                         tmp_config = match
                         break
