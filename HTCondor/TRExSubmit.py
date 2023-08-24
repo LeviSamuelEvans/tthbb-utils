@@ -387,14 +387,14 @@ class TRExSubmit:
 
                 # Gathering additonal systematic names for rankings
                 if 'NuisanceParameter:' in line:
-                    if 'r' in self.actions:
+                    if 'r' or 'mr' in self.actions:
                         syst_name_NP = line.split(":")[1].strip()
                         syst = syst.strip()
                         tmp_syst_list.append(syst_name_NP)
 
                 if 'NormFactor:' in line:
                     syst_name_NF = line.split(":")[1].strip()
-                    if 'r' in self.actions and not syst_name_NF.startswith("mu_"):
+                    if 'r' or 'mr' in self.actions and not syst_name_NF.startswith("mu_"):
                         tmp_syst_list.append(syst_name_NF)
 
         # Use sets here as to not double-count systematics in nested configs
