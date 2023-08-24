@@ -425,8 +425,12 @@ class TRExSubmit:
             print(f"INFO: No systematics found in '{config}'")
         elif not as_subconfig:
             print(f"INFO: Systematics found in '{config}' (and its nested configs):")
+            # First figure out the maximum width of the systematic index (so that we align the systematics names)
+            syst_index_width = len(f"{len(syst_list):d}")
+            syst_list_format = f"      - {{index:>{syst_index_width:d}d}}. {{syst}}"
+
             for index, syst in enumerate(syst_list, start=1):
-                print(f"      - {index}. {syst}")
+                print(syst_list_template.format(index=index, syst=syst))
 
         return syst_list
 
