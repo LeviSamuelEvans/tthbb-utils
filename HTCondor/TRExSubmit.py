@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 """
-=================================================================================================
-=== Python Script to run Condor batch jobs for different steps in TRExFitter 29.03.23 LE v1.0 ===
-=================================================================================================
+================================================================================
+=== Python Script to run Condor batch jobs for different steps in TRExFitter ===
+================================================================================
 
  - v0.1 named TRExSubmit_old.py now 06.01.23 Kept for posterity
 
  - v1.0 New features:
-    - Split by systematic as well as region | results in ~ 1000 batch jobs
+    - Split by systematic as well as region
     - Ignore commented out regions/systematics
     - Ignore if syst/reg name is enclosed by double quote
     - parse through syst names with ; separating them
@@ -35,6 +35,7 @@ Develop in this branch then merge in once ready.
       filesystem
     - Convert submission scripts to DAG for automatic hupdate jobs with split systematics
     - Use htcondor API library for job submission directly instead of using subprocess
+    - fix superfluous ranking jobs
 """
 
 import tempfile
@@ -372,20 +373,29 @@ class TRExSubmit:
 
                 if line.startswith('#'):
                     continue
-                if 'Systematic:' not in line:
-                    continue
 
-                syst_line = line.split(":")[1].strip()
+                # Gathering systematics from Systematic: name
+                if 'Systematic:' in line:
+                    syst_line = line.split(":")[1].strip()
+                    # let's get all the names for multi-systematic defined blocks
+                    for syst in syst_line.split(';'):
+                        syst = syst.strip()
+                        # remove any quotes
+                        if syst.startswith('"') and syst.endswith('"'):
+                            syst = syst[1:-1]
+                        tmp_syst_list.append(syst)
 
-                # Split the systematic names by semicolon and add them to the syst_list
-                for syst in syst_line.split(';'):
-                    syst = syst.strip()  # Remove any spaces before and after the systematic name
+                # Gathering additonal systematic names for rankings
+                if 'NuisanceParameter:' in line:
+                    if 'r' in self.actions:
+                        syst_name_NP = line.split(":")[1].strip()
+                        syst = syst.strip()
+                        tmp_syst_list.append(syst_name_NP)
 
-                    # Check if the systematic names are enclosed by double quotes
-                    if syst.startswith('"') and syst.endswith('"'):
-                        syst = syst[1:-1]  # Remove the double quotes
-
-                    tmp_syst_list.append(syst)
+                if 'NormFactor:' in line:
+                    syst_name_NF = line.split(":")[1].strip()
+                    if 'r' in self.actions and not syst_name_NF.startswith("mu_"):
+                        tmp_syst_list.append(syst_name_NF)
 
         # Use sets here as to not double-count systematics in nested configs
         syst_set = set(tmp_syst_list)
@@ -401,8 +411,8 @@ class TRExSubmit:
             print(f"INFO: No systematics found in '{config}'")
         elif not as_subconfig:
             print(f"INFO: Systematics found in '{config}' (and its nested configs):")
-            for syst in syst_list:
-                print(f"      - {syst}")
+            for index, syst in enumerate(syst_list, start=1):
+                print(f"      - {index}. {syst}")
 
         return syst_list
 
