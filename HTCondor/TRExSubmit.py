@@ -361,6 +361,9 @@ class TRExSubmit:
         sub_config_list = []
 
         with open(config) as f:
+            # Use caching variable for number of systematics to remove in case of NuisanceParameter entries
+            last_syst_cache_size = 0
+
             for line in f:
                 key_match = self._key_regex.search(line)
 
@@ -374,28 +377,39 @@ class TRExSubmit:
                 if line.startswith('#'):
                     continue
 
-                # Gathering systematics from Systematic: name
-                if 'Systematic:' in line:
-                    syst_line = line.split(":")[1].strip()
-                    # let's get all the names for multi-systematic defined blocks
-                    for syst in syst_line.split(';'):
-                        syst = syst.strip()
-                        # remove any quotes
-                        if syst.startswith('"') and syst.endswith('"'):
-                            syst = syst[1:-1]
-                        tmp_syst_list.append(syst)
+                # Gathering systematics (and background norm factors & deviating NP names for rankings)
+                is_syst = 'Systematic:' in line or 'UnfoldingSystematic:' in line
+                is_np = 'r' in self.actions and 'NuisanceParameter:' in line
+                is_nf = 'r' in self.actions and 'NormFactor:' in line
 
-                # Gathering additonal systematic names for rankings
-                if 'NuisanceParameter:' in line:
-                    if 'r' or 'mr' in self.actions:
-                        syst_name_NP = line.split(":")[1].strip()
-                        syst = syst.strip()
-                        tmp_syst_list.append(syst_name_NP)
+                if not is_syst and not is_np and not is_nf:
+                    continue
 
-                if 'NormFactor:' in line:
-                    syst_name_NF = line.split(":")[1].strip()
-                    if 'r' or 'mr' in self.actions and not syst_name_NF.startswith("mu_"):
-                        tmp_syst_list.append(syst_name_NF)
+                syst_line = line.split(":")[1].strip()
+                single_syst_list = []
+                # let's get all the names for multi-systematic defined blocks
+                for syst in syst_line.split(';'):
+                    syst = syst.strip()
+                    # remove any quotes
+                    if syst.startswith('"') and syst.endswith('"'):
+                        syst = syst[1:-1]
+                    single_syst_list.append(syst)
+
+                if is_syst:
+                    # Update the systematics list we use to remove entries
+                    # in case we have a NuisanceParameter entry for this systematic
+                    last_syst_cache_size = len(single_syst_list)
+                elif is_np:
+                    # Remove last systematic's entries from the combined list
+                    # (under the assumption that a NuisanceParameter will never stand outside a
+                    # Systematic or UnfoldingSystematic block!!!)
+                    assert len(single_syst_list) == last_syst_cache_size
+                    tmp_syst_list = tmp_syst_list[:-last_syst_cache_size]
+                elif is_nf:
+                    # Filter out POIs for NormFactors (those should start with 'mu_')
+                    single_syst_list = list(filter(lambda s: not s.startswith('mu_'), single_syst_list))
+
+                tmp_syst_list += single_syst_list
 
         # Use sets here as to not double-count systematics in nested configs
         syst_set = set(tmp_syst_list)
