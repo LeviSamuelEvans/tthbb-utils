@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 """
-=================================================================================================
-=== Python Script to run Condor batch jobs for different steps in TRExFitter 29.03.23 LE v1.0 ===
-=================================================================================================
+================================================================================
+=== Python Script to run Condor batch jobs for different steps in TRExFitter ===
+================================================================================
 
  - v0.1 named TRExSubmit_old.py now 06.01.23 Kept for posterity
 
  - v1.0 New features:
-    - Split by systematic as well as region | results in ~ 1000 batch jobs
+    - Split by systematic as well as region
     - Ignore commented out regions/systematics
     - Ignore if syst/reg name is enclosed by double quote
     - parse through syst names with ; separating them
@@ -360,6 +360,9 @@ class TRExSubmit:
         sub_config_list = []
 
         with open(config) as f:
+            # Use caching variable for number of systematics to remove in case of NuisanceParameter entries
+            last_syst_cache_size = 0
+
             for line in f:
                 key_match = self._key_regex.search(line)
 
@@ -372,20 +375,40 @@ class TRExSubmit:
 
                 if line.startswith('#'):
                     continue
-                if 'Systematic:' not in line:
+
+                # Gathering systematics (and background norm factors & deviating NP names for rankings)
+                is_syst = 'Systematic:' in line or 'UnfoldingSystematic:' in line
+                is_np = 'r' in self.actions and 'NuisanceParameter:' in line
+                is_nf = 'r' in self.actions and 'NormFactor:' in line
+
+                if not is_syst and not is_np and not is_nf:
                     continue
 
                 syst_line = line.split(":")[1].strip()
-
-                # Split the systematic names by semicolon and add them to the syst_list
+                single_syst_list = []
+                # let's get all the names for multi-systematic defined blocks
                 for syst in syst_line.split(';'):
-                    syst = syst.strip()  # Remove any spaces before and after the systematic name
-
-                    # Check if the systematic names are enclosed by double quotes
+                    syst = syst.strip()
+                    # remove any quotes
                     if syst.startswith('"') and syst.endswith('"'):
-                        syst = syst[1:-1]  # Remove the double quotes
+                        syst = syst[1:-1]
+                    single_syst_list.append(syst)
 
-                    tmp_syst_list.append(syst)
+                if is_syst:
+                    # Update the systematics list we use to remove entries
+                    # in case we have a NuisanceParameter entry for this systematic
+                    last_syst_cache_size = len(single_syst_list)
+                elif is_np:
+                    # Remove last systematic's entries from the combined list
+                    # (under the assumption that a NuisanceParameter will never stand outside a
+                    # Systematic or UnfoldingSystematic block!!!)
+                    assert len(single_syst_list) == last_syst_cache_size
+                    tmp_syst_list = tmp_syst_list[:-last_syst_cache_size]
+                elif is_nf:
+                    # Filter out POIs for NormFactors (those should start with 'mu_')
+                    single_syst_list = list(filter(lambda s: not s.startswith('mu_'), single_syst_list))
+
+                tmp_syst_list += single_syst_list
 
         # Use sets here as to not double-count systematics in nested configs
         syst_set = set(tmp_syst_list)
@@ -401,8 +424,12 @@ class TRExSubmit:
             print(f"INFO: No systematics found in '{config}'")
         elif not as_subconfig:
             print(f"INFO: Systematics found in '{config}' (and its nested configs):")
-            for syst in syst_list:
-                print(f"      - {syst}")
+            # First figure out the maximum width of the systematic index (so that we align the systematics names)
+            syst_index_width = len(f"{len(syst_list):d}")
+            syst_list_format = f"      - {{index:>{syst_index_width:d}d}}. {{syst}}"
+
+            for index, syst in enumerate(syst_list, start=1):
+                print(syst_list_template.format(index=index, syst=syst))
 
         return syst_list
 
