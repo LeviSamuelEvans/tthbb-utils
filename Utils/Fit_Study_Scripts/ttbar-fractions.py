@@ -6,9 +6,9 @@
 - Tips for running locally:
 
     1. First, mount the location of the L2 Ntuples to your MountPoint via macFuse
-    sshfs -r levans@linappserv0.pp.rhul.ac.uk:/juicefs/data/levans/L2_ttHbb_Production_212238_v3/ ~/Desktop/PhD/MountPoint/
+    sshfs -r <remote-path> <local-path>
     3. For Dismounting:
-    sudo diskutil umount force /Users/levievans/Desktop/PhD/MountPoint/
+    sudo diskutil umount force <local-path>
     Do not forget to dismount!
 
 - How to run on Lxplus/Tier3 sites:
