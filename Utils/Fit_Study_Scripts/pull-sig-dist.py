@@ -8,7 +8,7 @@ from sympy import symbols
 
 plt.style.use(style="ggplot")
 
-# Load fit results from a file
+# Load fit results from file
 fit_results_file = "combined_STXS_BONLY.txt"
 fit_results = np.loadtxt(fname=fit_results_file, dtype=str, skiprows=1)
 
