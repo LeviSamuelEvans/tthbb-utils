@@ -429,7 +429,7 @@ class TRExSubmit:
             syst_list_format = f"      - {{index:>{syst_index_width:d}d}}. {{syst}}"
 
             for index, syst in enumerate(syst_list, start=1):
-                print(syst_list_template.format(index=index, syst=syst))
+                print(f"      - {index}. {syst}")
 
         return syst_list
 
