@@ -358,6 +358,7 @@ class TRExSubmit:
         """
         tmp_syst_list = []
         sub_config_list = []
+        syst_list_template = "      - {}. {}"
 
         with open(config) as f:
             # Use caching variable for number of systematics to remove in case of NuisanceParameter entries
@@ -429,7 +430,7 @@ class TRExSubmit:
             syst_list_format = f"      - {{index:>{syst_index_width:d}d}}. {{syst}}"
 
             for index, syst in enumerate(syst_list, start=1):
-                print(syst_list_template.format(index=index, syst=syst))
+                print(syst_list_template.format(index, syst))
 
         return syst_list
 
