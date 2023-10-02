@@ -112,9 +112,9 @@ class TRExSubmit:
         except FileExistsError:
             pass
 
-        # Read actions and make sure the `n` step is executed alone only to not have thousands of job failures from this
+        # Read actions and make sure the `n` or 'b' step is executed alone only to not have thousands of job failures from this
         self.actions = actions
-        if self.actions is not None and 'n' in self.actions and not self.actions == 'n':
+        if self.actions is not None and ('n' in self.actions or 'b' in self.actions) and self.actions not in ['n', 'b']:
             print(
                 f"\033[31mERROR: N-tuple translation action `n` should only be used alone, you used `{self.actions}`!"
                 f"\033[0m",
@@ -137,11 +137,11 @@ class TRExSubmit:
                 self._check_integrate_configs(self.config_list)
             self.config_list = [os.path.join(self.config_dir, f) for f in self._query_cached_configs()]
 
-        # It only makes sense to run regions separated if we have the `n` action included
-        self.split_regions = split_regions if self.actions == 'n' else False
+        # It only makes sense to run regions separated if we have the `n` or 'b' action included
+        self.split_regions = split_regions if self.actions in ['n', 'b'] else False
         # We automatically run systematics together if we run regions together (unless in 'r' mode)
         self.split_systs = split_systs if 'r' in self.actions else False
-        self.split_systs = (split_systs and self.split_regions) if 'n' in self.actions else self.split_systs
+        self.split_systs = (split_systs and self.split_regions) if ('n' in self.actions or 'b' in self.actions) else self.split_systs
         self.num_syst_per_job = num_syst_per_job if self.split_systs else None
         self.extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
