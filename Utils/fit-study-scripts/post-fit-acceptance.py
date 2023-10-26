@@ -9,6 +9,27 @@ import numpy as np
 from math import nan
 
 class PFATableExtractor:
+    """
+    A class for extracting data from .tex files containing post-fit acceptance tables.
+
+    Attributes:
+    - base_path (str): The base path of the directory containing the .tex files.
+    - sub_directory (str): The subdirectory within the base path containing the .tex files.
+    - exclude_files (list): A list of filenames to exclude from the extraction process.
+    - region (str): The current region being processed.
+    - samples (list): A list of sample names to extract data for.
+    - samples_order (list): The order in which the samples should be plotted.
+    - region_order (list): The order in which the regions should be plotted.
+    - Channel (str): The channel being analyzed.
+
+    Methods:
+    - extract_data_from_tex(filepath): Extracts data from a single .tex file and returns a structured dictionary.
+    - extract_data_from_multiple_files(): Extracts data from multiple .tex files within a directory.
+    - region_divide(pivot_norm): Draws vertical lines to divide the plot by region.
+    - sample_divide(pivot_norm): Draws horizontal lines to divide the plot by sample.
+    - bin_divide(pivot_norm): Draws vertical lines to divide the plot by bins.
+    - plot_data(all_data): Plots the extracted data in different formats.
+    """
     def __init__(self, base_path, sub_directory, exclude_files=[]):
         self.base_path = base_path
         self.sub_directory = sub_directory
@@ -21,7 +42,19 @@ class PFATableExtractor:
 
     def extract_data_from_tex(self, filepath):
         """
-        Extracts data from .tex file and returns a structured dictionary.
+        Extracts data from a LaTeX file containing post-fit acceptance results.
+
+        Args:
+            filepath (str): The path to the LaTeX file.
+
+        Returns:
+            list: A list of dictionaries containing the extracted data. Each dictionary contains the following keys:
+                - type (str): The type of systematic uncertainty ('norm' or 'shape').
+                - sample (str): The name of the sample.
+                - systematic_name (str): The name of the systematic uncertainty.
+                - region (str): The name of the region.
+                - bin (int): The bin number (only present for shape uncertainties).
+                - percentage_change (float): The percentage change in the acceptance due to the systematic uncertainty.
         """
         # Regular expressions for extraction
         norm_pattern = re.compile(r'norm\s+(.+?)&([-\d.]+)\s+\\%')
@@ -69,7 +102,10 @@ class PFATableExtractor:
 
     def extract_data_from_multiple_files(self):
         """
-        Extracts data from multiple .tex files within a directory.
+        Extracts data from multiple .tex files in a directory and returns a dictionary of the extracted data.
+
+        Returns:
+        data_dict (dict): A dictionary containing the extracted data from the .tex files.
         """
         directory_path = os.path.join(self.base_path, self.sub_directory)
         all_files = os.listdir(directory_path)
@@ -87,6 +123,15 @@ class PFATableExtractor:
         return data_dict
 
     def region_divide(self, pivot_norm):
+        """
+        Divides the regions in the pivot_norm dataframe and plots bold lines to separate them.
+
+        Args:
+        pivot_norm (pandas.DataFrame): A pandas dataframe containing the normalized pivot table.
+
+        Returns:
+        None
+        """
         regions_in_order = pivot_norm.index.get_level_values('region').tolist()
         ytick_positions = []
 
@@ -100,6 +145,15 @@ class PFATableExtractor:
             plt.axhline(y=ytick, color='black', linewidth=2.0)
 
     def sample_divide(self, pivot_norm):
+        """
+        Divides the samples in the pivot_norm dataframe and plots vertical lines to separate them.
+
+        Args:
+        pivot_norm (pandas.DataFrame): A dataframe containing the normalized pivot table.
+
+        Returns:
+        None
+        """
         samples_in_order = pivot_norm.columns.get_level_values('sample').tolist()
         xtick_positions = []
 
@@ -112,6 +166,15 @@ class PFATableExtractor:
             plt.axvline(xtick, color='black', linewidth=2.0)
 
     def bin_divide(self, pivot_norm):
+        """
+        Divides the bins in the pivot_norm dataframe and plots vertical lines to separate them.
+
+        Args:
+        pivot_norm (pandas.DataFrame): A dataframe containing the normalized pivot table.
+
+        Returns:
+        None
+        """
         bins_in_order = pivot_norm.columns.get_level_values('bin').tolist()
         xtick_positions = []
 
@@ -124,6 +187,15 @@ class PFATableExtractor:
             plt.axvline(xtick, color='black', linewidth=2.0)
 
     def plot_data(self, all_data):
+        """
+        Plots various graphs based on the input data.
+
+        Parameters:
+        all_data (dict): A dictionary containing data for normalisation and shape effects.
+
+        Returns:
+        None
+        """
         # Extract the relevant data
         norm_data = [item for sublist in all_data.values() for item in sublist if item['type'] == 'norm']
         shape_data = [item for sublist in all_data.values() for item in sublist if item['type'] == 'shape']
