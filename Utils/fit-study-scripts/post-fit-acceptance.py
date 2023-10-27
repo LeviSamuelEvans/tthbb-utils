@@ -1,251 +1,319 @@
+import re
+import os
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
 import matplotlib.ticker as ticker
-from atlasify import atlasify
-"""
-# order in .tex is ttb,tB,2b,c,light
+import mplhep
+import numpy as np
+from math import nan
 
-Quick Plot to examine post-fit accectance effects of Nuisance Parameters
+class PFATableExtractor:
+    """
+    A class for extracting data from .tex files containing post-fit acceptance tables.
 
-TODO:
-    - Improve code by reading straight from .tex files and plot all together
-    - implement a function for this
-    - move to mlphep for ATLAS plotting styles
-    - Normalise to total effect per region
-    - improve plot aesthetics
+    Attributes:
+    - base_path (str): The base path of the directory containing the .tex files.
+    - sub_directory (str): The subdirectory within the base path containing the .tex files.
+    - exclude_files (list): A list of filenames to exclude from the extraction process.
+    - region (str): The current region being processed.
+    - samples (list): A list of sample names to extract data for.
+    - samples_order (list): The order in which the samples should be plotted.
+    - region_order (list): The order in which the regions should be plotted.
+    - Channel (str): The channel being analyzed.
 
-"""
-#====================#
-# tt+light Component #
-#====================#
+    Methods:
+    - extract_data_from_tex(filepath): Extracts data from a single .tex file and returns a structured dictionary.
+    - extract_data_from_multiple_files(): Extracts data from multiple .tex files within a directory.
+    - region_divide(pivot_norm): Draws vertical lines to divide the plot by region.
+    - sample_divide(pivot_norm): Draws horizontal lines to divide the plot by sample.
+    - bin_divide(pivot_norm): Draws vertical lines to divide the plot by bins.
+    - plot_data(all_data): Plots the extracted data in different formats.
+    """
+    def __init__(self, base_path, sub_directory, exclude_files=[]):
+        self.base_path = base_path
+        self.sub_directory = sub_directory
+        self.exclude_files = exclude_files
+        self.region = None
+        self.samples = ['tt+1b', 'tt+B', 'tt+≥2b','tt+≥1c', 'tt+light']
+        self.samples_order = ['tt+1b', 'tt+B', 'tt+≥2b','tt+≥1c', 'tt+light']
+        self.region_order = ['tt1b','ttB','tt2b','ttc','tt_light']
+        self.Channel = channel
 
-tt_light_data = {'norm tt-XS': -8.6,
-                 'norm ttlight-PS-QUAD': -1.2,
-                 'norm ttlight-FSR-QUAD': -1.7,
-                 'norm ATLAS-FTAG-L0': 1.4,
-                 'norm ATLAS-JES-Modelling-1': -1.1,
-                 'norm ATLAS-JES-PU-Rho': -1.6}
+    def extract_data_from_tex(self, filepath):
+        """
+        Extracts data from a LaTeX file containing post-fit acceptance results.
+
+        Args:
+            filepath (str): The path to the LaTeX file.
+
+        Returns:
+            list: A list of dictionaries containing the extracted data. Each dictionary contains the following keys:
+                - type (str): The type of systematic uncertainty ('norm' or 'shape').
+                - sample (str): The name of the sample.
+                - systematic_name (str): The name of the systematic uncertainty.
+                - region (str): The name of the region.
+                - bin (int): The bin number (only present for shape uncertainties).
+                - percentage_change (float): The percentage change in the acceptance due to the systematic uncertainty.
+        """
+        # Regular expressions for extraction
+        norm_pattern = re.compile(r'norm\s+(.+?)&([-\d.]+)\s+\\%')
+        shape_pattern = re.compile(r'shape\s+(.+?)\sbin\s(\d+)&([-\d.]+)\s+\\%')
+        sample_separator_pattern = re.compile(r'{\\color{blue}{.*?\\rightarrow.*?}} & \\')
+
+        # Storage for extracted data
+        data = []
+        self.sample_index = -1
+        with open(filepath, 'r') as f:
+            for line in f:
+                # Check for sample separator
+                if sample_separator_pattern.search(line):
+                    self.sample_index += 1
+                    if self.sample_index >= len(self.samples):
+                        print(f"Warning: sample_index ({self.sample_index}) exceeded number of samples in {filepath}")
+                    continue
+
+                # Check for norm pattern
+                match = norm_pattern.search(line)
+                if match:
+                    data.append({
+                        'type': 'norm',
+                        'sample': self.samples[self.sample_index] if 0 <= self.sample_index < len(self.samples) else "unknown",
+                        'systematic_name': match.group(1),
+                        'region': self.region,
+                        'percentage_change': float(match.group(2))
+                    })
+
+                    continue
+
+                # Check for shape pattern
+                match = shape_pattern.search(line)
+                if match:
+                    data.append({
+                        'type': 'shape',
+                        'sample': self.samples[self.sample_index] if 0 <= self.sample_index < len(self.samples) else "unknown",
+                        'systematic_name': match.group(1),
+                        'bin': int(match.group(2)),
+                        'region': self.region,
+                        'percentage_change': float(match.group(3))
+                    })
+
+        return data
+
+    def extract_data_from_multiple_files(self):
+        """
+        Extracts data from multiple .tex files in a directory and returns a dictionary of the extracted data.
+
+        Returns:
+        data_dict (dict): A dictionary containing the extracted data from the .tex files.
+        """
+        directory_path = os.path.join(self.base_path, self.sub_directory)
+        all_files = os.listdir(directory_path)
+
+        tex_files = [f for f in all_files if f.startswith('Pulls') and f.endswith('.tex') and f not in self.exclude_files]
+
+        data_dict = {}
+
+        for tex_file in tex_files:
+            self.region = tex_file.split('Pulls_')[1].rsplit('_', 1)[0]
+            file_path = os.path.join(directory_path, tex_file)
+            data = self.extract_data_from_tex(file_path)
+            data_dict[tex_file] = data
+
+        return data_dict
+
+    def region_divide(self, pivot_norm):
+        """
+        Divides the regions in the pivot_norm dataframe and plots bold lines to separate them.
+
+        Args:
+        pivot_norm (pandas.DataFrame): A pandas dataframe containing the normalized pivot table.
+
+        Returns:
+        None
+        """
+        regions_in_order = pivot_norm.index.get_level_values('region').tolist()
+        ytick_positions = []
+
+        for idx in range(1, len(regions_in_order)):
+            if regions_in_order[idx] != regions_in_order[idx-1]:
+                ytick_positions.append(idx)
+            idx += 1
+
+        # Plot the bold lines based on calculated positions
+        for ytick in ytick_positions:
+            plt.axhline(y=ytick, color='black', linewidth=2.0)
+
+    def sample_divide(self, pivot_norm):
+        """
+        Divides the samples in the pivot_norm dataframe and plots vertical lines to separate them.
+
+        Args:
+        pivot_norm (pandas.DataFrame): A dataframe containing the normalized pivot table.
+
+        Returns:
+        None
+        """
+        samples_in_order = pivot_norm.columns.get_level_values('sample').tolist()
+        xtick_positions = []
+
+        for idx in range(1, len(samples_in_order)):
+            if samples_in_order[idx] != samples_in_order[idx-1]:
+                xtick_positions.append(idx)
+            idx += 1
+
+        for xtick in xtick_positions:
+            plt.axvline(xtick, color='black', linewidth=2.0)
+
+    def bin_divide(self, pivot_norm):
+        """
+        Divides the bins in the pivot_norm dataframe and plots vertical lines to separate them.
+
+        Args:
+        pivot_norm (pandas.DataFrame): A dataframe containing the normalized pivot table.
+
+        Returns:
+        None
+        """
+        bins_in_order = pivot_norm.columns.get_level_values('bin').tolist()
+        xtick_positions = []
+
+        for idx in range(1, len(bins_in_order)):
+            if bins_in_order[idx] != bins_in_order[idx-1]:
+                xtick_positions.append(idx)
+            idx += 1
+
+        for xtick in xtick_positions:
+            plt.axvline(xtick, color='black', linewidth=2.0)
+
+    def plot_data(self, all_data):
+        """
+        Plots various graphs based on the input data.
+
+        Parameters:
+        all_data (dict): A dictionary containing data for normalisation and shape effects.
+
+        Returns:
+        None
+        """
+        # Extract the relevant data
+        norm_data = [item for sublist in all_data.values() for item in sublist if item['type'] == 'norm']
+        shape_data = [item for sublist in all_data.values() for item in sublist if item['type'] == 'shape']
+
+        norm_df = pd.DataFrame(norm_data)
+        shape_df = pd.DataFrame(shape_data)
+
+        # ========== Bar Plot for Acceptance effects over all regions specified  ==========
+        plt.figure(figsize=(15, 7))
+        sns.barplot(x='sample', y='percentage_change', data=norm_df, ci='sd', capsize=0.2)
+        plt.title("Normalisation Effects")
+        plt.grid(True, axis='y')
+        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        plt.tight_layout()
+        plt.savefig(f'{save_directory}test_Norm.pdf', bbox_inches='tight')
+
+        # ======= Heatmap for Shape Effects per region, per bin ==========
+        shape_df.set_index(['region', 'systematic_name'], inplace=True)
+        pivot_shape = shape_df.pivot_table(values='percentage_change', index=['region', 'systematic_name'], columns='bin', fill_value=nan)
+
+        # Reset the index for sorting
+        pivot_shape_reset = pivot_shape.reset_index()
+        pivot_shape_reset['region_rank'] = pivot_shape_reset['region'].apply(lambda x: self.region_order.index(x) if x in self.region_order else len(self.region_order))
+        pivot_shape_sorted = pivot_shape_reset.sort_values(['region_rank', 'systematic_name']).drop('region_rank', axis=1).set_index(['region', 'systematic_name'])
+
+        plt.figure(figsize=(20, 10))
+        sns.heatmap(pivot_shape_sorted, cmap="coolwarm", center=0, annot=True, fmt=".2f")
+        self.region_divide(pivot_shape_sorted)
+        self.bin_divide(pivot_shape_sorted)
+        plt.title(f"Post-fit Shape Effects (%) {self.Channel}", fontsize=18)
+        plt.rcParams["font.family"] = "Arial"
+        plt.xlabel("Bin Number", fontsize=20)
+        plt.ylabel("Region | Systematic", fontsize=20)
+        plt.tight_layout()
+        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        plt.savefig(f"{save_directory}test_shape_Heat.pdf", bbox_inches='tight')
+
+        # ======= Box Plot for Acceptance effects over all regions ==========
+
+        plt.figure(figsize=(15, 7))
+        sns.boxplot(x='sample', y='percentage_change', data=norm_df)
+        plt.title("Distribution of Percentage Changes")
+        plt.grid(True, axis='y')
+        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        plt.tight_layout()
+        plt.savefig(f"{save_directory}test_Box_norm.pdf", bbox_inches='tight')
+
+        # ======= Heatmap for Norm Effects per Region per sample (specified) ==========
+
+        norm_df.set_index(['region', 'systematic_name'], inplace=True)
+        pivot_norm = norm_df.pivot_table(values='percentage_change', index=['region', 'systematic_name'], columns='sample', fill_value=np.nan)
+        # Order samples on the x-axis of heatmap based on ordering given in self.samples_order
+        pivot_norm = pivot_norm[self.samples_order]
+        pivot_norm_reset = pivot_norm.reset_index()
+        pivot_norm_reset['region_rank'] = pivot_norm_reset['region'].apply(lambda x: self.region_order.index(x) if x in self.region_order else len(self.region_order))
+        pivot_norm_sorted = pivot_norm_reset.sort_values(['region_rank', 'systematic_name']).drop('region_rank', axis=1).set_index(['region', 'systematic_name'])
+
+        plt.figure(figsize=(30, 20))
+        sns.heatmap(pivot_norm_sorted, cmap="coolwarm", center=0, annot=True, fmt=".2f")#, linewidths=.5, linecolor='gray')
+        self.region_divide(pivot_norm_sorted)
+        self.sample_divide(pivot_norm_sorted)
+        plt.title(f"Post-fit Normalisation Effects (%) {self.Channel}", fontsize=18)
+        plt.rcParams["font.family"] = "Arial"
+        plt.tight_layout()
+        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        plt.xticks(fontsize=16)
+        plt.xlabel("Sample", fontsize=20)
+        plt.ylabel("Region_Systematic", fontsize=20)
+        plt.savefig(f"{save_directory}test_norm_Heat.pdf", bbox_inches='tight')
 
 
-tt_1b_data = {'norm tt-XS': -8.6,
-              'norm ttlight-PS-QUAD': -1.8,
-              'norm ttlight-FSR-QUAD': -2.1,
-              'norm ATLAS-FTAG-L0': 3.8,
-              'norm ATLAS-JER-EffectiveNP-2': 1.6,
-              'norm ATLAS-JER-EffectiveNP-3': 1.2,
-              'norm ATLAS-JES-Modelling-1': -1.7,
-              'norm ATLAS-JES-PU-Rho': -2.2}
+# = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
 
+if __name__ == '__main__':
+    base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/2l_STXS_BONLY/Fit_2l/"
+    #base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/1l_STXS_BONLY/Fit_1l/"
 
-tt_2b_data = {'norm tt-XS': -8.6,
-              'norm ttlight-PS-QUAD': -4.6,
-              'norm ttlight-scale-var': -1.2,
-              'norm ttlight-FSR-QUAD': -1.4,
-              'norm ATLAS-FTAG-L0': 6.5,
-              'norm ATLAS-JER-EffectiveNP-2': 2.2,
-              'norm ATLAS-JER-EffectiveNP-3': 1.5,
-              'norm ATLAS-JES-Modelling-1': -1.6,
-              'norm ATLAS-JES-PU-Rho': -2.4}
+    sub_directory = "Tables/"
 
-ttc_data = {'norm bTag-High-pT-extrap1-b': 1.1,
-            'norm tt-XS': -8.6,
-            'norm ttlight-PS-QUAD': -2.4,
-            'norm ttlight-scale-var': -1.1,
-            'norm ttlight-FSR-QUAD': -2.7,
-            'norm ATLAS-FTAG-L0': 8.1,
-            'norm ATLAS-JES-Modelling-1': -1.4,
-            'norm ATLAS-JES-PU-Rho': -1.9}
+    save_directory = "images/2l/"
+    #save_directory = "images/1l/"
 
+    # Excluding signal regions for now
+    channel = "2l"
+    #channel = "1l"
 
-ttB_data = {'norm bTag-High-pT-extrap1-b': 4,
-            'norm bTag-High-pT-extrap1-c': 3.5,
-            'norm bTag-High-pT-extrap1-light': 2.4,
-            'norm tt-XS': -8.6,
-            'norm ttlight-PS-QUAD': -2.7,
-            'norm ttlight-pthard1-gen': -1.1,
-            'norm ttlight-scale-var': -1.5,
-            'norm ttlight-FSR-QUAD': -1.5,
-            'norm ATLAS-FTAG-L0': 4.7,
-            'norm ATLAS-JES-Modelling-1': -1.2,
-            'norm ATLAS-JES-PU-Rho': -1.2}
+    exclude_list = [
+        "Pulls_ttH_STXS1_1l.tex",
+        "Pulls_ttH_STXS2_1l.tex",
+        "Pulls_ttH_STXS3_1l.tex",
+        "Pulls_ttH_STXS4_1l.tex",
+        "Pulls_ttH_STXS5_1l.tex",
+        "Pulls_ttH_STXS6_1l.tex",
+        "Pulls_Full_ttH_STXS1_1l.tex",
+        "Pulls_Full_ttH_STXS2_1l.tex",
+        "Pulls_Full_ttH_STXS3_1l.tex",
+        "Pulls_Full_ttH_STXS4_1l.tex",
+        "Pulls_Full_ttH_STXS5_1l.tex",
+        "Pulls_Full_ttH_STXS6_1l.tex",
+        "Pulls_Full_ttH_boost_SR_1l.tex",
+        "Pulls_ttH_boost_CR_1l.tex",
+        "Pulls_ttH_STXS1_2l.tex",
+        "Pulls_ttH_STXS2_2l.tex",
+        "Pulls_ttH_STXS3_2l.tex",
+        "Pulls_ttH_STXS4_2l.tex",
+        "Pulls_ttH_STXS5_2l.tex",
+        "Pulls_ttH_STXS6_2l.tex",
+        "Pulls_Full_ttH_STXS1_2l.tex",
+        "Pulls_Full_ttH_STXS2_2l.tex",
+        "Pulls_Full_ttH_STXS3_2l.tex",
+        "Pulls_Full_ttH_STXS4_2l.tex",
+        "Pulls_Full_ttH_STXS5_2l.tex",
+        "Pulls_Full_ttH_STXS6_2l.tex",
+        "Pulls_Full_ttH_STXS5_2l_boost.tex",
+        "Pulls_Full_ttH_STXS6_2l_boost.tex",
+    ]
 
-#=================#
-# tt+1b Component #
-#=================#
+    extractor = PFATableExtractor(base_path, sub_directory, exclude_list)
+    all_data = extractor.extract_data_from_multiple_files()
 
-tt_light_data = {'norm ttb-4FS-PH7-PS': 2.2,
-                 'norm ttb-4FS-scale-var': -1.2,
-                 'norm ATLAS-JES-PU-Rho': -1.2}
-
-tt_1b_data = {'norm ttb-4FS-scale-var': -1,
-              'norm ATLAS-JES-PU-Rho': -1.2}
-
-tt_2b_data = {'norm ttb-4FS-scale-var': -2.2,
-              'norm ATLAS-FTAG-L0': 1.7,
-              'norm ATLAS-JES-Modelling-1': -1.4,
-              'norm ATLAS-JES-PU-Rho': -1.9}
-
-ttc_data = {'norm ttb-4FS-scale-var': -1.6,
-            'norm ATLAS-JES-Modelling-1': -1,
-            'norm ATLAS-JES-PU-Rho': -1.4}
-
-ttB_data = {'norm ttb-4FS-PH7-PS': 2.1}
-
-
-#==================#
-# tt+≥2b Component #
-#==================#
-
-tt_light_data = {'norm ttbb-4FS-PH7-PS': 9.9,
-                 'norm ttbb-4FS-FSR-QUAD': 2.1,
-                 }
-
-tt_1b_data = {'norm ttbb-4FS-PH7-PS': 3,
-              'norm ttbb-4FS-FSR-QUAD': -1.7
-              }
-
-tt_2b_data = {'norm ttbb-4FS-PH7-PS': 1.2,
-              'norm ATLAS-JES-PU-Rho': -1.3
-              }
-
-ttc_data = {'norm ttbb-4FS-PH7-PS': 3.8,
-            'norm ttbb-4FS-FSR-QUAD': 1.1,
-            }
-
-ttB_data = {'norm ttbb-4FS-PH7-PS': 6.9,
-            'norm ttbb-4FS-FSR-QUAD': 1.4,
-            'norm ttbb-4FS-PP8-dip' : -2.1
-            }
-
-
-#================#
-# tt+B Component #
-#================#
-
-tt_light_data = {'norm tt1B-4FS-PH7-PS': -4.5,
-                 'norm tt1B-4FS-scale-var': -1.5,
-                 'norm ttB-norm' : -12
-                 }
-
-tt_1b_data = {'norm tt1B-4FS-PH7-PS': -3,
-              'norm tt1B-4FS-PP8-dip': -1,
-              'norm tt1B-4FS-scale-var': -1.6,
-              'norm ttB-norm' : -12
-              }
-
-tt_2b_data = {'norm tt1B-4FS-PP8-dip': 3.5,
-              'norm tt1B-4FS-scale-var': -2.9,
-              'norm ttB-norm': -12,
-              'norm ATLAS-FTAG-L0' : 1.7,
-              'norm ATLAS-JES-Modelling' : -1,
-              'norm ATLAS-JES-PU-Rho' : -1.4
-              }
-
-ttc_data = {'norm tt1B-4FS-PH7-PS': -2.5,
-            'norm tt1B-4FS-scale-var': -2.1,
-            'norm ttB-norm' : -12
-            }
-
-ttB_data = {'norm tt1B-4FS-PH7-PS': -2.5,
-            'norm tt1B-4FS-scale-var': -1,
-            'norm ttB-norm' : -12
-            }
-
-
-#==================#
-# tt+≥1c Component #
-#==================#
-
-tt_light_data = {'norm ttc-dropc-PS-QUAD': -1.2,
-                 'norm ATLAS-JES-PU-Rho': -1.3,
-                 }
-
-tt_1b_data = {'norm ttc-pthard1-gen': -1.3,
-              'norm ATLAS-JES-PU-Rho': -1.2,
-              }
-
-tt_2b_data = {'norm ttc-dropc-PS-QUAD': 1.1,
-              'norm ttc-pthard1-gen': -1.4,
-              'norm ttc-dropc-FSR-QUAD': 1.7,
-              'norm ATLAS-FTAG-L0' : 2,
-              'norm ATLAS-JER-EffectiveNP' : 1.1,
-              'norm ATLAS-JES-Modelling' : -1.4,
-              'ATLAS-JES-PU-Rho' : -1.9
-              }
-
-ttc_data = {'norm bTag-High-pT-extrap1-b': 1.6,
-            'norm bTag-High-pT-extrap1-c': 1.5,
-            'norm bTag-High-pT-extrap1-light' : 1,
-            'norm ttc-pthard1-gen' : -1.3,
-            'norm ATLAS-FTAG-L0' : 1.3,
-            'norm ATLAS-JES-PU-Rho' : -1.4
-            }
-
-ttB_data = {'nnorm bTag-High-pT-extrap1-b': 4.9,
-            'norm bTag-High-pT-extrap1-c': 4.8,
-            'norm bTag-High-pT-extrap1-light' : 3.1,
-            'ttc-dropc-PS-QUAD' : 1.9,
-            'ttc-dropc-FSR-QUAD' : 1.3,
-            'ATLAS-FTAG-C1' : 1.5
-            }
-
-# --------------------------------------------------------------------------------------
-
-# Convert data to Pandas dataframes
-tt_light_df = pd.DataFrame(list(tt_light_data.items()), columns=['Parameter', 'Effect'])
-tt_1b_df = pd.DataFrame(list(tt_1b_data.items()), columns=['Parameter', 'Effect'])
-tt_2b_df = pd.DataFrame(list(tt_2b_data.items()), columns=['Parameter', 'Effect'])
-ttc_df = pd.DataFrame(list(ttc_data.items()), columns=['Parameter', 'Effect'])
-ttB_df = pd.DataFrame(list(ttB_data.items()), columns=['Parameter', 'Effect'])
-
-
-# Set up the plot
-fig, ax = plt.subplots(figsize=(10, 5))
-ax.set_title('Post-fit Acceptance effects: comb')
-ax.tick_params(axis='both', labelsize=6)
-
-# Add the grid lines to the plot
-ax.grid(axis='y', linestyle='--', alpha=0.7)
-
-
-# Combine data into one dataframe for plotting the bar graph
-df = pd.concat([tt_light_df, tt_1b_df, tt_2b_df,ttc_df, ttB_df,], axis=0)
-df['Region'] = ['tt+light'] * len(tt_light_df) + ['tt+1b'] * len(tt_1b_df) + \
-               ['tt+≥2b'] * len(tt_2b_df) + ['tt+≥1c'] * len(ttc_df) + ['tt+B'] * len(ttB_df)
-
-# Set color for each region, based on colours used in Data/MC plots
-colors = {
-          'tt+1b': (0,0,255),
-          'tt+≥2b': (0, 128, 255),
-          'tt+B': (0,0,204),
-          'tt+≥1c': (153,51,255),
-          'tt+light': (51,255,51),
-          }
-
-# Convert RGB tuple to hex code
-colors = {key: '#{:02x}{:02x}{:02x}'.format(*value) for key, value in colors.items()}
-
-# Create bar plot using Seaborn
-sns.barplot(x='Parameter', y='Effect', hue='Region', data=df, ax=ax, palette=colors, linewidth=15, saturation=1.0, width=0.85)
-
-# Rotate x-axis labels
-plt.xticks(rotation=45, ha='right')
-
-ax.axhline(y=0, color='black', linewidth=0.5)
-
-# Add legend outside the plot for each region
-ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-
-# Adjust plot margins
-plt.subplots_adjust(left=0.1, right=0.9, bottom=0.1, top=0.9, wspace=0.2, hspace=0.2)
-
-# Set y-axis tick frequency
-ax.yaxis.set_major_locator(ticker.MultipleLocator(1.0))
-ax.set_xlabel('Nuisance parameter')
-ax.set_ylabel('Acceptance effect (%)')
-atlasify('Internal', '$\sqrt{s}$ = 13 TeV, 140fb$^{-1}$')
-plt.savefig('PFA_ttcomb.pdf', bbox_inches='tight')
-plt.savefig('PFA_ttcomb.png', bbox_inches='tight')
-
-#plt.show()
+    extractor.plot_data(all_data)
