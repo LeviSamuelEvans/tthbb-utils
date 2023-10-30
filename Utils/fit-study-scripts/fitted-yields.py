@@ -80,7 +80,7 @@ def plot_ratio(base_path, data_dict, sample_name, region):
     # Modify the ratio list to extend its length by 1
     ratio.append(ratio[-1])  # Appending the last ratio value
 
-    # Change from plt.plot to plt.step
+
     sample_color = color_dict.get(sample_name, "black")  # Default to black if sample not found in dictionary
     plt.step(bin_edges, ratio, where='post', linestyle='--', color=sample_color)
     plt.xlabel(data_dict[region]['prefit']['Figure'][0]['XaxisLabel'])
