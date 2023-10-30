@@ -5,16 +5,19 @@ import re
 import argparse
 
 """
-This script defines a class `CondorJobHandler` that handles failed Condor jobs by checking for errors in the job output logs,
-extracting the names of the failed jobs, and creating a new arguments file for retrying the failed jobs. The class has four
-methods: `__init__`, `check_errors`, `extract_failed_jobs`, and `create_new_args_file`. The script also includes a main
-function that parses command line arguments and creates an instance of the `CondorJobHandler` class to handle the failed jobs.
+Description:
+    - This script defines a class `CondorJobHandler` that handles failed Condor jobs by checking for errors in the job output logs,
+    extracting the names of the failed jobs, and creating a new arguments file for retrying the failed jobs. The class has four
+    methods: `__init__`, `check_errors`, `extract_failed_jobs`, and `create_new_args_file`. The script also includes a main
+    function that parses command line arguments and creates an instance of the `CondorJobHandler` class to handle the failed jobs.
 
-Usage: ./retry_jobs.py -d <directory> -o <output_log> -a <original_args_file> -n <new_args_file>
+Usage:
+    - ./retry_jobs.py -d <directory> -o <output_log> -a <original_args_file> -n <new_args_file>
 
-Note: You'll then need to either copy the new output arguments to the base directory of the condor workspace or
+Notes:
+    - You'll then need to either copy the new output arguments to the base directory of the condor workspace or
       rename the job arguments file used in the .sh file of the job submitter
-       (i.e. from original TRExSubmit script output folder)
+      (i.e. from original TRExSubmit script output folder)
 """
 
 class CondorJobHandler:
@@ -50,6 +53,7 @@ class CondorJobHandler:
             if filename.endswith(".err"):
                 with open(os.path.join(self.directory, filename), "r") as file:
                     contents = file.read()
+                    # Find common TREx errors
                     if "trex-fitter: command not found" in contents or "Error in <TFile::TFile>:" in contents:
                         output_str = f"File: {filename}\nContents:\n{contents}\n\n"
                         with open(self.output_log, "a") as output_file:

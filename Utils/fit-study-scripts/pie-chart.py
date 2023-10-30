@@ -1,9 +1,29 @@
+#!/usr/bin/env python3
+
 import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import mplhep
 
 # source /cvmfs/sft.cern.ch/lcg/views/dev3/latest/x86_64-centos7-gcc11-opt/setup.sh
+
+"""
+================
+== Pie Charts ==
+================
+
+Description:
+    - Script to plot pie charts for region composition.
+
+Usage:
+    - ./fitted-yields.py
+    - you will then be prompted to enter the path to your YAML file (pre or post-fit) and the channel
+
+Notes:
+    - Requires TRExFitter output YAML files
+    - Configure the script
+
+"""
 
 class PieChart:
     def __init__(self):

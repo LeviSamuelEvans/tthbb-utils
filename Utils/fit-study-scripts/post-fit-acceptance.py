@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import re
 import os
 import pandas as pd
@@ -8,9 +10,28 @@ import mplhep
 import numpy as np
 from math import nan
 
+"""
+=============================================================
+== Post-fit Acceptance Effects of Nuisance Parameter Pulls ==
+=============================================================
+
+Description:
+    - Script to visualise the post-fit acceptance effects of nuisance parameter
+      pulls,both in terms of normalisation and shape effects.
+
+Usage:
+    - ./post-fit-acceptance.py
+    - configure the script using the variables below main()
+
+Notes:
+    - Requires TRExFitter BuildPullTable output .tex files (NORM+SHAPE)
+
+"""
+
 class PFATableExtractor:
     """
     A class for extracting data from .tex files containing post-fit acceptance tables.
+    Plots the results in various formats.
 
     Attributes:
     - base_path (str): The base path of the directory containing the .tex files.
@@ -30,6 +51,7 @@ class PFATableExtractor:
     - bin_divide(pivot_norm): Draws vertical lines to divide the plot by bins.
     - plot_data(all_data): Plots the extracted data in different formats.
     """
+
     def __init__(self, base_path, sub_directory, exclude_files=[]):
         self.base_path = base_path
         self.sub_directory = sub_directory

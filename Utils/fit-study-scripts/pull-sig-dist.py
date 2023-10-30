@@ -6,6 +6,24 @@ from scipy.stats import norm, shapiro, chisquare
 from scipy.optimize import curve_fit
 from sympy import symbols
 
+"""
+====================================
+== Pull Significance Distribution ==
+====================================
+
+Description:
+    - Script to plot the distribution of pull significances for a given fit.
+      (Run fits with `MINOS: all` for best results)
+
+Usage:
+    - ./pull-sig-dist.py
+    - point towards the fit results file in start of the script
+
+Notes:
+
+"""
+
+
 plt.style.use(style="ggplot")
 
 # Load fit results from file

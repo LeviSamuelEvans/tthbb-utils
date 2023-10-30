@@ -1,8 +1,27 @@
+#!/usr/bin/env python3
+
 import yaml
 import matplotlib.pyplot as plt
 import mplhep
 import os
 
+
+"""
+==============================
+== Fitted Yield Comparisons ==
+==============================
+
+Description:
+    - Script to plot the post-fit to pre-fit yield ratio for all
+      specified samples in all specified regions.
+
+Usage:
+    - ./fitted-yields.py
+
+Notes:
+    - Requires TRExFitter output YAML files
+    - Configure the script using the variables below
+"""
 
 plt.style.use(mplhep.style.ROOT)
 
@@ -67,11 +86,11 @@ def plot_ratio(base_path, data_dict, sample_name, region):
     plt.xlabel(data_dict[region]['prefit']['Figure'][0]['XaxisLabel'])
     plt.ylabel(f"Post-fit / Pre-fit")
     plt.title(f"{sample_name} in {region}", fontsize=20, loc='right')
-    mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=20, ax=None)
+    mplhep.atlas.text(text="Internal", loc=0, fontsize=20, ax=None)
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
 
     # Create directory if it does not exist
-    directory = f"Plots/{channel}/{region}"
+    directory = f"/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostOverPreYields/{channel}/{region}"
     if not os.path.exists(directory):
         os.makedirs(directory)
 
@@ -100,12 +119,12 @@ def plot_all_samples(base_path, data_dict, region, sample_list, color_dict):
     plt.xlabel(data_dict[region]['prefit']['Figure'][0]['XaxisLabel'])
     plt.ylabel(f"Post-fit / Pre-fit")
     plt.title(f"All Samples in {region}", fontsize=20, loc='right')
-    mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=20, ax=None)
+    mplhep.atlas.text(text="Internal", loc=0, fontsize=20, ax=None)
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=10, frameon=True, framealpha=0.2)
 
     # Save the combined plot
-    directory = f"Plots/{channel}/{region}"
+    directory = f"/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostOverPreYields/{channel}/{region}"
     if not os.path.exists(directory):
         os.makedirs(directory)
     plt.savefig(f"{directory}/{region}_AllSamples_{channel}.pdf")
@@ -133,12 +152,12 @@ def plot_one_sample_across_regions(base_path, data_dict, sample_name, region_lis
     plt.xlabel("Relative NN Discriminant")  # You may need to adjust this depending on your data
     plt.ylabel(f"Post-fit / Pre-fit")
     plt.title(f"{sample_name} across All Regions", fontsize=20, loc='right')
-    mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=20, ax=None)
+    mplhep.atlas.text(text="Internal", loc=0, fontsize=20, ax=None)
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize=10, frameon=True, framealpha=0.2, title="Regions")
 
     # Save the plot
-    directory = f"Plots/{channel}/Summary"
+    directory = f"/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostOverPreYields/{channel}/Summary"
     if not os.path.exists(directory):
         os.makedirs(directory)
     plt.savefig(f"{directory}/{sample_name}_AcrossAllRegions_{channel}.pdf")
@@ -146,7 +165,7 @@ def plot_one_sample_across_regions(base_path, data_dict, sample_name, region_lis
 
 
 if __name__ == '__main__':
-    base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/1l_STXS_BONLY/Fit_1l"
+    base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/2l_STXS_BONLY/Fit_2l"
     regions = ['tt1b',
                'ttB',
                'tt2b',
@@ -165,7 +184,7 @@ if __name__ == '__main__':
 
     sample_list = ['tt + 1b', 'tt + B', 'tt + #geq2b', 'tt + #geq1c', 'tt + light']
 
-    channel = '1l'
+    channel = '2l'
 
     color_dict = {
     "tt + 1b": "#4169E1", # Royal Blue

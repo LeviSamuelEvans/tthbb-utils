@@ -1,9 +1,28 @@
-import datetime
+#!/usr/bin/env python3
 
+import datetime
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 import numpy as np
+
+"""
+===================
+== POI STXS Plot ==
+===================
+
+Description:
+    - Script to plot the POI values for each STXS bin.
+
+Usage:
+    - ./poi-stxs-plot.py
+
+Notes:
+    - point to the correct fit results file in the start of the script
+    - requires stat-only fits
+    - run all fits with MINOS errors on POIs
+
+"""
 
 # YOU WILL NEED TO RUN THIS "source /cvmfs/sft.cern.ch/lcg/views/dev3/latest/x86_64-centos7-gcc11-opt/setup.sh" BEFORE RUNNING THIS SCRIPT
 mpl.style.use("seaborn-colorblind")

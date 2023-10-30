@@ -1,6 +1,9 @@
 import yaml
 
 """
+A very workflow specifc helper script to update the systematic renormalisation
+values.
+
 TODO: implement function for updating calculation Lines with updated_values
       for less code repition
       fix mapping for correlated systematics
