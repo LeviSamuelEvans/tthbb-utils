@@ -165,7 +165,7 @@ def plot_one_sample_across_regions(base_path, data_dict, sample_name, region_lis
 
 
 if __name__ == '__main__':
-    base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/2l_STXS_BONLY/Fit_2l"
+    base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/1l_STXS_BONLY/Fit_1l"
     regions = ['tt1b',
                'ttB',
                'tt2b',
@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
     sample_list = ['tt + 1b', 'tt + B', 'tt + #geq2b', 'tt + #geq1c', 'tt + light']
 
-    channel = '2l'
+    channel = '1l'
 
     color_dict = {
     "tt + 1b": "#4169E1", # Royal Blue

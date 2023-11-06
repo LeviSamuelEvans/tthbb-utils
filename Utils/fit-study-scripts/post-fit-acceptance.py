@@ -230,7 +230,7 @@ class PFATableExtractor:
         sns.barplot(x='sample', y='percentage_change', data=norm_df, ci='sd', capsize=0.2)
         plt.title("Normalisation Effects")
         plt.grid(True, axis='y')
-        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
         plt.tight_layout()
         plt.savefig(f'{save_directory}test_Norm.pdf', bbox_inches='tight')
 
@@ -252,7 +252,7 @@ class PFATableExtractor:
         plt.xlabel("Bin Number", fontsize=20)
         plt.ylabel("Region | Systematic", fontsize=20)
         plt.tight_layout()
-        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
         plt.savefig(f"{save_directory}test_shape_Heat.pdf", bbox_inches='tight')
 
         # ======= Box Plot for Acceptance effects over all regions ==========
@@ -261,7 +261,7 @@ class PFATableExtractor:
         sns.boxplot(x='sample', y='percentage_change', data=norm_df)
         plt.title("Distribution of Percentage Changes")
         plt.grid(True, axis='y')
-        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
         plt.tight_layout()
         plt.savefig(f"{save_directory}test_Box_norm.pdf", bbox_inches='tight')
 
@@ -282,7 +282,7 @@ class PFATableExtractor:
         plt.title(f"Post-fit Normalisation Effects (%) {self.Channel}", fontsize=18)
         plt.rcParams["font.family"] = "Arial"
         plt.tight_layout()
-        mplhep.atlas.text(text="Simulation Internal", loc=0, fontsize=16, ax=None)
+        mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
         plt.xticks(fontsize=16)
         plt.xlabel("Sample", fontsize=20)
         plt.ylabel("Region_Systematic", fontsize=20)
@@ -297,8 +297,8 @@ if __name__ == '__main__':
 
     sub_directory = "Tables/"
 
-    save_directory = "images/2l/"
-    #save_directory = "images/1l/"
+    save_directory = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostFitAcceptance/2l/"
+    #save_directory = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostFitAcceptance/1l/"
 
     # Excluding signal regions for now
     channel = "2l"
