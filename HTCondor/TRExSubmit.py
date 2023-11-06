@@ -1254,7 +1254,7 @@ if __name__ == "__main__":
         type=int,
         dest="run_time",
         default=None,
-        help="Runtime for the jobs",
+        help="Runtime for the jobs in seconds.",
     )
 
     job_split_procedure = parser.add_mutually_exclusive_group()
