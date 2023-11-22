@@ -10,7 +10,7 @@ extracting the names of the failed jobs, and creating a new arguments file for r
 
 Usage: ./retry_jobs.py -d <directory> -o <output_log> -a <original_args_file> -n <new_args_file> -t <trex-fitter step>
 
-Example: ./retry_jobs.py -d path/to/logs/ -o failed_1l_jobs.log -a path/to/job_arguments.txt -n args_1l_retry.txt -t n
+Example: ./retry_jobs.py -d path/to/logs/ -o failed_1l_jobs.log -a path/to/job_arguments.txt -n args_1l_retry.txt -s n
 
 Note: You'll then need to copy the new output arguments file to the base directory of the condor workspace.
        (i.e. from original TRExSubmit script output folder)
