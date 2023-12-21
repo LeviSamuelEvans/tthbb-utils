@@ -35,6 +35,9 @@ Develop in this branch then merge in once ready.
       filesystem
     - Convert submission scripts to DAG for automatic hupdate jobs with split systematics
     - Use htcondor API library for job submission directly instead of using subprocess
+    - Add ability to submit Likelihood Scan jobs (via cmd line LHscanStep=i)
+    - Add ability to submit Bootstrap jobs
+    - Add ability to submit group impacts (via SubCategory option in syst blocks)
 """
 
 import tempfile
@@ -405,7 +408,7 @@ class TRExSubmit:
         Returns
         -------
         List[str]
-            List of regions in config.
+            List of regions in config and included configs.
         """
         tmp_region_list = []
         sub_config_list = []
@@ -425,6 +428,13 @@ class TRExSubmit:
                     sub_config_list.append(
                         os.path.join(self.config_dir, key_match["value"])
                     )
+                elif key_match is not None and key_match["key"] == "INCLUDE":
+                    # now also check for any additonal included configs
+                    include_file = os.path.join(self.config_dir, key_match["value"])
+                    include_regions = self._get_region_list(
+                        include_file, as_subconfig=True
+                    )
+                    tmp_region_list.extend(include_regions)
 
         # Use sets here as regions in nested configs may have common regions
         region_set = set(tmp_region_list)
