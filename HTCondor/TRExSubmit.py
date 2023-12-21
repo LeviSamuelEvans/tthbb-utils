@@ -114,12 +114,12 @@ class TRExSubmit:
 
         # Build the regex expressions needed later on
         # Rep-file: Take everything up to comments and trim whitespace in the path, disregard quotes
-        self._rep_regex = re.compile(
-            "^\s*ReplacementFile\s*:\s*(?P<value>[^#%]*[^\s#%])[\s#%]*"
-        )  # noqa W605
+        self._file_regex = re.compile(
+            "^\s*(?P<key>[\w-]+)\s*:\s*(?P<value>[^#%]*[^\s#%])[\s#%]*"  # noqa W605
+        )
         # Other keys: Allow quote-escaping of value and add key and quote groups with logic for retrieval
         self._key_regex = re.compile(
-            '^\s*(?P<key>[\w-]+)\s*:\s*(?P<quote>")?'  # noqa W605
+            '^\s*(?P<key>[\w-]+)\s*:\s*(?P<quote>")?'                        # noqa W605
             '(?P<value>(?(quote)[^"]+|[^"#%]*[^"\s#%]))(?(quote)"|)[\s#%]*'  # noqa W605
         )
 
@@ -147,6 +147,7 @@ class TRExSubmit:
         self.integrate_everything = self._check_update_integrate_cachefile(
             integrate_everything
         )
+        self.config_region_syst_dict = None
 
         # Check if we got any configs if we don't integrate
         if not self.integrate_everything and not self.config_list:
@@ -412,18 +413,23 @@ class TRExSubmit:
 
         with open(config) as conf:
             for line in conf:
+                file_match = self._file_regex.search(line)
                 key_match = self._key_regex.search(line)
 
-                if key_match is not None and key_match["key"] == "Region":
-                    tmp_region_list.append(key_match["value"])
+                if key_match is not None and key_match['key'] == "Region":
+                    tmp_region_list.append(key_match['value'])
+                elif file_match is not None and file_match['key'] == "INCLUDE":
+                    sub_config_list.append(
+                        os.path.abspath(os.path.join(os.path.dirname(config), file_match['value']))
+                    )
                 elif (
-                    "m" in self.actions
+                    'm' in self.actions
                     and key_match is not None
-                    and key_match["key"] == "ConfigFile"
+                    and key_match['key'] == "ConfigFile"
                 ):
                     # Add in subconfigs into this config
                     sub_config_list.append(
-                        os.path.join(self.config_dir, key_match["value"])
+                        os.path.abspath(os.path.join(os.path.dirname(config), key_match['value']))
                     )
 
         # Use sets here as regions in nested configs may have common regions
@@ -471,16 +477,22 @@ class TRExSubmit:
             last_syst_cache_size = 0
 
             for line in f:
+                file_match = self._file_regex.search(line)
                 key_match = self._key_regex.search(line)
 
-                if (
-                    "m" in self.actions
+                if file_match is not None and file_match['key'] == "INCLUDE":
+                    sub_config_list.append(
+                        os.path.abspath(os.path.join(os.path.dirname(config), key_match['value']))
+                    )
+                    continue
+                elif (
+                    'm' in self.actions
                     and key_match is not None
-                    and key_match["key"] == "ConfigFile"
+                    and key_match['key'] == "ConfigFile"
                 ):
                     # Add in subconfigs into this config
                     sub_config_list.append(
-                        os.path.join(self.config_dir, key_match["value"])
+                        os.path.abspath(os.path.join(os.path.dirname(config), key_match['value']))
                     )
                     continue
 
@@ -577,9 +589,9 @@ class TRExSubmit:
         """Add additional configs to the config subdirectory.
 
         Before new configs (and replacement files) are added, files are checked
-        for namespace collisions as well. Additionally, the input, output, and
-        replacement file paths in the configs are updated in such a way that they
-        can be used without further modifications.
+        for namespace collisions as well. Additionally, the input, output, include,
+        and replacement file paths in the configs are updated in such a way that
+        they can be used without further modifications.
 
         Parameters
         ----------
@@ -591,6 +603,7 @@ class TRExSubmit:
         # Extract the config names from the paths
         config_names = {}
         replacement_paths = {}
+        include_file_paths = {}
         for config_path in config_list:
             config_name = os.path.basename(config_path)
             config_name = (
@@ -606,12 +619,24 @@ class TRExSubmit:
                 )
                 sys.exit(1)
 
-            rep_file = self._get_replacement_file(config_path)
-            if not os.path.isabs(rep_file):  # Deal with relative replacement files
+            # Deal with the replacement file
+            rep_file_paths = self._get_path_from_config(config_path, 'ReplacementFile')
+
+            if len(rep_file_paths) > 1:
+                print(
+                    f"\033[31mERROR: Found {len(rep_file_paths)} "
+                    f"replacement files in '{config_path}'!\033[0m",
+                    file=sys.stderr
+                )
+                sys.exit(1)
+
+            rep_file = None if not rep_file_paths else rep_file_paths[0]
+
+            # Deal with relative replacement files
+            if rep_file is not None and not os.path.isabs(rep_file):
                 rep_file = os.path.abspath(
                     os.path.join(os.path.dirname(config_path), rep_file)
                 )
-            replacement_paths[config_name] = rep_file
 
             if rep_file is not None and not os.path.isfile(rep_file):
                 print(
@@ -620,6 +645,41 @@ class TRExSubmit:
                     file=sys.stderr,
                 )
                 sys.exit(1)
+
+            replacement_paths[config_name] = rep_file
+
+            # Now deal with included files - they cannot recurse in TRExFitter
+            # at the moment (December 2023), so we'll not do that either
+            config_include_file_paths = self._get_path_from_config(config_path, 'INCLUDE')
+            config_include_file_path_dict = {}
+            for path in config_include_file_paths:
+                abs_path = path
+                if not os.path.isabs(path):
+                    abs_path = os.path.abspath(
+                        os.path.join(os.path.dirname(config_path), path)
+                    )
+
+                if not os.path.isfile(abs_path):
+                    print(
+                        f"\033[31mERROR: Cannot find include file '{abs_path}' for "
+                        f"'{config_path}'!\033[0m",
+                        file=sys.stderr
+                    )
+                    sys.exit(1)
+
+                # Now add the path
+                config_include_file_path_dict[path] = abs_path
+
+            if config_include_file_path_dict:
+                tmp_include_string = '    - ' + '\n    - '.join(
+                    config_include_file_path_dict.values()
+                )
+                print(
+                    f"INFO: Including the following files for '{config_name}':"
+                    f"\n{tmp_include_string}"
+                )
+
+            include_file_paths[config_name] = config_include_file_path_dict
 
         # Check config_names for duplicates - both amongst the new ones and
         # with the cached ones
@@ -647,23 +707,29 @@ class TRExSubmit:
         # Add configs and replacement files, change paths
         for config_path, config_name in config_names.items():
             replacement_path = replacement_paths[config_name]
+            config_include_file_paths = include_file_paths[config_name]
+
             new_config_path = os.path.join(self.config_dir, f"{config_name}.yaml")
             new_replacement_file = (
-                f"{config_name}.yaml_REPLACEMENTFILE"
+                f"REPLACEMENTFILE_{config_name}.yaml"
                 if replacement_path is not None
                 else None
             )
+            old_new_include_file_path_pairs = {
+                ref: (old_path, f"INCLUDEFILE_{i}_{config_name}.yaml")
+                for i, (ref, old_path) in enumerate(config_include_file_paths.items())
+            }
+            old_new_include_file_value_dict = {
+                old_value: new_value
+                for old_value, (_, new_value) in old_new_include_file_path_pairs.items()
+            }
 
             shutil.copy2(config_path, new_config_path)
-            if new_replacement_file is not None:
-                shutil.copy2(
-                    replacement_path,
-                    os.path.join(self.config_dir, new_replacement_file),
-                )
-            self._update_paths_in_config(
-                config_path=new_config_path,
-                new_replacement_file=new_replacement_file,
-            )
+            if replacement_path is not None:
+                shutil.copy2(replacement_path, os.path.join(self.config_dir, new_replacement_file))
+            for old_path, new_file_name in old_new_include_file_path_pairs.values():
+                shutil.copy2(old_path, os.path.join(self.config_dir, new_file_name))
+            self._update_paths_in_config(new_config_path, old_new_include_file_value_dict, new_replacement_file)
 
     def _query_cached_configs(self) -> List[str]:
         """Retrieves config files from config folder
@@ -683,50 +749,63 @@ class TRExSubmit:
         ]
 
         # Now remove all replacement files and return the remainder
-        return [f for f in file_list if not f.endswith("_REPLACEMENTFILE")]
+        return [
+            f for f in file_list
+            if (
+                not f.startswith('REPLACEMENTFILE_')
+                and not f.startswith('INCLUDEFILE_')
+            )
+        ]
 
-    def _get_replacement_file(self, config_path: str) -> Optional[str]:
-        """Crawls config to find a possible replacement file
+    def _get_path_from_config(self, config_path: str, key: str) -> List[str]:
+        """Crawls config to find possible paths at a specific key
 
         Parameters
         ----------
         config_path : str
             Path to the config to be crawled.
+        key : str
+            Key to search for in the config.
 
         Returns
         -------
-        Optional[str]
-            Either a path to the replacement file found under the key `ReplacementFile` in the config
-            or `None` in case no such setting was found.
+        List[str]
+            A list with all paths found under the key `key`.
         """
+
+        matches = []
         with open(config_path) as f:
             for line in f:
-                matches = self._rep_regex.search(line)
-                if matches is not None:  # Break if we found a replacement file
-                    break
+                tmp_match = self._file_regex.search(line)
+                if tmp_match is not None and tmp_match['key'] == key:  # Add the path if it matches the key
+                    matches.append(tmp_match['value'])
 
-        return None if matches is None else matches["value"]
+        return matches
 
     def _update_paths_in_config(
         self,
         config_path: str,
+        old_new_include_files: Dict[str, str],
         new_replacement_file: str = None,
     ) -> None:
-        """Updates replacement file and output directory for newly cached config.
+        """Updates file paths and output directory for newly cached config.
 
         Parameters
         ----------
         config_path : str
             Config file to modify.
+        old_new_include_files : Dict[str, str]
+            Dictionary with the old include files as keys, and their old paths and
+            new names as tuple-items.
         new_replacement_file : str, optional
             Name of relocated replacement file of the config. By default, it is
-            assumed that the config file does not need a replacement file, by default
-            None
+            assumed that the config file does not need a replacement file.
 
         Raises
         ------
         KeyError
-            If no replacement file name was submitted, but needed by the config file.
+            - If no replacement file name was submitted, but needed by the config file.
+            - If an include file in the config does not have a valid replacement.
         """
         # Use relative paths and ensure that folder paths end in `/`
         rel_workspace_dir_slash = os.path.join("..", self.SUB_DIRS["results"], "")
@@ -738,15 +817,26 @@ class TRExSubmit:
             for line in orig_file:
                 # This is where the matching magic happens
                 new_line = line
-                rep_match = self._rep_regex.search(line)
+                file_match = self._file_regex.search(line)
                 key_match = self._key_regex.search(line)
 
-                if rep_match is not None:
+                # No need to check for quotes with ReplacementFiles and INCLUDEs (as of December 2023)
+                if file_match is not None and file_match['key'] == 'ReplacementFile':
                     if new_replacement_file is None:
                         raise KeyError(
                             f"No replacement file submitted for '{config_path}' but required!"
                         )
-                    new_line = line.replace(rep_match["value"], new_replacement_file)
+                    new_line = line.replace(file_match['value'], new_replacement_file)
+                elif file_match is not None and file_match['key'] == 'INCLUDE':
+                    if file_match['value'] not in old_new_include_files:
+                        raise KeyError(
+                                f"Include file '{file_match['value']}' to be "
+                                f"changed has no alternative to change to!"
+                        )
+                    new_line = line.replace(
+                        file_match['value'],
+                        old_new_include_files[file_match['value']]
+                    )
                 elif key_match is not None:
                     # First make sure that we only change paths for the correct keys
                     if key_match["key"] not in self.CONFIG_KEYS_TO_PATH_CONVERT:
