@@ -525,7 +525,8 @@ class TRExSubmit:
                     # Remove last systematic's entries from the combined list
                     # (under the assumption that a NuisanceParameter will never stand outside a
                     # Systematic or UnfoldingSystematic block!!!)
-                    assert len(single_syst_list) == last_syst_cache_size
+                    if args.used_configs:
+                        assert len(single_syst_list) == last_syst_cache_size
                     tmp_syst_list = tmp_syst_list[:-last_syst_cache_size]
                 elif is_nf:
                     # Filter out POIs for NormFactors (those should start with 'mu_')
