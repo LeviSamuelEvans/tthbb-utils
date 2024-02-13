@@ -13,7 +13,7 @@ Description:
     tail of the distribution, to reduce impact of the systematic.
 
 Usage: 
-    Simply run with python3 weights.py
+    Simply run with python3 fsr_weights.py
     a CSV file will be saved with all weights per sample and region specified
     plots will be saved in the plots directory, individually and combined
     
