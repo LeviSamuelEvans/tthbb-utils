@@ -30,6 +30,7 @@ import pandas as pd
 import csv
 import numpy as np
 
+plt.style.use(hep.style.ROOT)
 
 # ttlight selection
 def selection_ttlight(event):
