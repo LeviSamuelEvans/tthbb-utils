@@ -18,7 +18,7 @@ Description:
       Useful for comparing different fit setups
 
 Usage:
-    - corr-diff.py path/to/<yaml_file1> path/to/<yaml_file2>"
+    - corr-diff.py path/to/<corr_mat_yaml1> path/to/<corr_mat_yaml2>"
 
 """
 
