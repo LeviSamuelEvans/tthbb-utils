@@ -28,6 +28,7 @@ Notes:
 
 """
 
+
 class PFATableExtractor:
     """
     A class for extracting data from .tex files containing post-fit acceptance tables.
@@ -57,9 +58,9 @@ class PFATableExtractor:
         self.sub_directory = sub_directory
         self.exclude_files = exclude_files
         self.region = None
-        self.samples = ['tt+1b', 'tt+B', 'tt+≥2b','tt+≥1c', 'tt+light']
-        self.samples_order = ['tt+1b', 'tt+B', 'tt+≥2b','tt+≥1c', 'tt+light']
-        self.region_order = ['tt1b','ttB','tt2b','ttc','tt_light']
+        self.samples = ["tt+1b", "tt+B", "tt+≥2b", "tt+≥1c", "tt+light"]
+        self.samples_order = ["tt+1b", "tt+B", "tt+≥2b", "tt+≥1c", "tt+light"]
+        self.region_order = ["tt1b", "ttB", "tt2b", "ttc", "tt_light"]
         self.Channel = channel
 
     def extract_data_from_tex(self, filepath):
@@ -79,46 +80,62 @@ class PFATableExtractor:
                 - percentage_change (float): The percentage change in the acceptance due to the systematic uncertainty.
         """
         # Regular expressions for extraction
-        norm_pattern = re.compile(r'norm\s+(.+?)&([-\d.]+)\s+\\%')
-        shape_pattern = re.compile(r'shape\s+(.+?)\sbin\s(\d+)&([-\d.]+)\s+\\%')
-        sample_separator_pattern = re.compile(r'{\\color{blue}{.*?\\rightarrow.*?}} & \\')
+        norm_pattern = re.compile(r"norm\s+(.+?)&([-\d.]+)\s+\\%")
+        shape_pattern = re.compile(r"shape\s+(.+?)\sbin\s(\d+)&([-\d.]+)\s+\\%")
+        sample_separator_pattern = re.compile(
+            r"{\\color{blue}{.*?\\rightarrow.*?}} & \\"
+        )
 
         # Storage for extracted data
         data = []
         self.sample_index = -1
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             for line in f:
                 # Check for sample separator
                 if sample_separator_pattern.search(line):
                     self.sample_index += 1
                     if self.sample_index >= len(self.samples):
-                        print(f"Warning: sample_index ({self.sample_index}) exceeded number of samples in {filepath}")
+                        print(
+                            f"Warning: sample_index ({self.sample_index}) exceeded number of samples in {filepath}"
+                        )
                     continue
 
                 # Check for norm pattern
                 match = norm_pattern.search(line)
                 if match:
-                    data.append({
-                        'type': 'norm',
-                        'sample': self.samples[self.sample_index] if 0 <= self.sample_index < len(self.samples) else "unknown",
-                        'systematic_name': match.group(1),
-                        'region': self.region,
-                        'percentage_change': float(match.group(2))
-                    })
+                    data.append(
+                        {
+                            "type": "norm",
+                            "sample": (
+                                self.samples[self.sample_index]
+                                if 0 <= self.sample_index < len(self.samples)
+                                else "unknown"
+                            ),
+                            "systematic_name": match.group(1),
+                            "region": self.region,
+                            "percentage_change": float(match.group(2)),
+                        }
+                    )
 
                     continue
 
                 # Check for shape pattern
                 match = shape_pattern.search(line)
                 if match:
-                    data.append({
-                        'type': 'shape',
-                        'sample': self.samples[self.sample_index] if 0 <= self.sample_index < len(self.samples) else "unknown",
-                        'systematic_name': match.group(1),
-                        'bin': int(match.group(2)),
-                        'region': self.region,
-                        'percentage_change': float(match.group(3))
-                    })
+                    data.append(
+                        {
+                            "type": "shape",
+                            "sample": (
+                                self.samples[self.sample_index]
+                                if 0 <= self.sample_index < len(self.samples)
+                                else "unknown"
+                            ),
+                            "systematic_name": match.group(1),
+                            "bin": int(match.group(2)),
+                            "region": self.region,
+                            "percentage_change": float(match.group(3)),
+                        }
+                    )
 
         return data
 
@@ -132,12 +149,18 @@ class PFATableExtractor:
         directory_path = os.path.join(self.base_path, self.sub_directory)
         all_files = os.listdir(directory_path)
 
-        tex_files = [f for f in all_files if f.startswith('Pulls') and f.endswith('.tex') and f not in self.exclude_files]
+        tex_files = [
+            f
+            for f in all_files
+            if f.startswith("Pulls")
+            and f.endswith(".tex")
+            and f not in self.exclude_files
+        ]
 
         data_dict = {}
 
         for tex_file in tex_files:
-            self.region = tex_file.split('Pulls_')[1].rsplit('_', 1)[0]
+            self.region = tex_file.split("Pulls_")[1].rsplit("_", 1)[0]
             file_path = os.path.join(directory_path, tex_file)
             data = self.extract_data_from_tex(file_path)
             data_dict[tex_file] = data
@@ -154,17 +177,17 @@ class PFATableExtractor:
         Returns:
         None
         """
-        regions_in_order = pivot_norm.index.get_level_values('region').tolist()
+        regions_in_order = pivot_norm.index.get_level_values("region").tolist()
         ytick_positions = []
 
         for idx in range(1, len(regions_in_order)):
-            if regions_in_order[idx] != regions_in_order[idx-1]:
+            if regions_in_order[idx] != regions_in_order[idx - 1]:
                 ytick_positions.append(idx)
             idx += 1
 
         # Plot the bold lines based on calculated positions
         for ytick in ytick_positions:
-            plt.axhline(y=ytick, color='black', linewidth=2.0)
+            plt.axhline(y=ytick, color="black", linewidth=2.0)
 
     def sample_divide(self, pivot_norm):
         """
@@ -176,16 +199,16 @@ class PFATableExtractor:
         Returns:
         None
         """
-        samples_in_order = pivot_norm.columns.get_level_values('sample').tolist()
+        samples_in_order = pivot_norm.columns.get_level_values("sample").tolist()
         xtick_positions = []
 
         for idx in range(1, len(samples_in_order)):
-            if samples_in_order[idx] != samples_in_order[idx-1]:
+            if samples_in_order[idx] != samples_in_order[idx - 1]:
                 xtick_positions.append(idx)
             idx += 1
 
         for xtick in xtick_positions:
-            plt.axvline(xtick, color='black', linewidth=2.0)
+            plt.axvline(xtick, color="black", linewidth=2.0)
 
     def bin_divide(self, pivot_norm):
         """
@@ -197,16 +220,16 @@ class PFATableExtractor:
         Returns:
         None
         """
-        bins_in_order = pivot_norm.columns.get_level_values('bin').tolist()
+        bins_in_order = pivot_norm.columns.get_level_values("bin").tolist()
         xtick_positions = []
 
         for idx in range(1, len(bins_in_order)):
-            if bins_in_order[idx] != bins_in_order[idx-1]:
+            if bins_in_order[idx] != bins_in_order[idx - 1]:
                 xtick_positions.append(idx)
             idx += 1
 
         for xtick in xtick_positions:
-            plt.axvline(xtick, color='black', linewidth=2.0)
+            plt.axvline(xtick, color="black", linewidth=2.0)
 
     def plot_data(self, all_data):
         """
@@ -219,32 +242,61 @@ class PFATableExtractor:
         None
         """
         # Extract the relevant data
-        norm_data = [item for sublist in all_data.values() for item in sublist if item['type'] == 'norm']
-        shape_data = [item for sublist in all_data.values() for item in sublist if item['type'] == 'shape']
+        norm_data = [
+            item
+            for sublist in all_data.values()
+            for item in sublist
+            if item["type"] == "norm"
+        ]
+        shape_data = [
+            item
+            for sublist in all_data.values()
+            for item in sublist
+            if item["type"] == "shape"
+        ]
 
         norm_df = pd.DataFrame(norm_data)
         shape_df = pd.DataFrame(shape_data)
 
         # ========== Bar Plot for Acceptance effects over all regions specified  ==========
         plt.figure(figsize=(15, 7))
-        sns.barplot(x='sample', y='percentage_change', data=norm_df, ci='sd', capsize=0.2)
+        sns.barplot(
+            x="sample", y="percentage_change", data=norm_df, ci="sd", capsize=0.2
+        )
         plt.title("Normalisation Effects")
-        plt.grid(True, axis='y')
+        plt.grid(True, axis="y")
         mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
         plt.tight_layout()
-        plt.savefig(f'{save_directory}test_Norm.pdf', bbox_inches='tight')
+        plt.savefig(f"{save_directory}test_Norm.pdf", bbox_inches="tight")
 
         # ======= Heatmap for Shape Effects per region, per bin ==========
-        shape_df.set_index(['region', 'systematic_name'], inplace=True)
-        pivot_shape = shape_df.pivot_table(values='percentage_change', index=['region', 'systematic_name'], columns='bin', fill_value=nan)
+        shape_df.set_index(["region", "systematic_name"], inplace=True)
+        pivot_shape = shape_df.pivot_table(
+            values="percentage_change",
+            index=["region", "systematic_name"],
+            columns="bin",
+            fill_value=nan,
+        )
 
         # Reset the index for sorting
         pivot_shape_reset = pivot_shape.reset_index()
-        pivot_shape_reset['region_rank'] = pivot_shape_reset['region'].apply(lambda x: self.region_order.index(x) if x in self.region_order else len(self.region_order))
-        pivot_shape_sorted = pivot_shape_reset.sort_values(['region_rank', 'systematic_name']).drop('region_rank', axis=1).set_index(['region', 'systematic_name'])
+        pivot_shape_reset["region_rank"] = pivot_shape_reset["region"].apply(
+            lambda x: (
+                self.region_order.index(x)
+                if x in self.region_order
+                else len(self.region_order)
+            )
+        )
+        pivot_shape_sorted = (
+            pivot_shape_reset.sort_values(["region_rank", "systematic_name"])
+            .drop("region_rank", axis=1)
+            .set_index(["region", "systematic_name"])
+        )
 
         plt.figure(figsize=(20, 10))
-        sns.heatmap(pivot_shape_sorted, cmap="coolwarm", center=0, annot=True, fmt=".2f")
+        sns.heatmap(
+            pivot_shape_sorted, cmap="coolwarm", center=0, annot=True, fmt=".2f"
+        )
         self.region_divide(pivot_shape_sorted)
         self.bin_divide(pivot_shape_sorted)
         plt.title(f"Post-fit Shape Effects (%) {self.Channel}", fontsize=18)
@@ -253,30 +305,47 @@ class PFATableExtractor:
         plt.ylabel("Region | Systematic", fontsize=20)
         plt.tight_layout()
         mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
-        plt.savefig(f"{save_directory}test_shape_Heat.pdf", bbox_inches='tight')
+        plt.savefig(f"{save_directory}test_shape_Heat.pdf", bbox_inches="tight")
 
         # ======= Box Plot for Acceptance effects over all regions ==========
 
         plt.figure(figsize=(15, 7))
-        sns.boxplot(x='sample', y='percentage_change', data=norm_df)
+        sns.boxplot(x="sample", y="percentage_change", data=norm_df)
         plt.title("Distribution of Percentage Changes")
-        plt.grid(True, axis='y')
+        plt.grid(True, axis="y")
         mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
         plt.tight_layout()
-        plt.savefig(f"{save_directory}test_Box_norm.pdf", bbox_inches='tight')
+        plt.savefig(f"{save_directory}test_Box_norm.pdf", bbox_inches="tight")
 
         # ======= Heatmap for Norm Effects per Region per sample (specified) ==========
 
-        norm_df.set_index(['region', 'systematic_name'], inplace=True)
-        pivot_norm = norm_df.pivot_table(values='percentage_change', index=['region', 'systematic_name'], columns='sample', fill_value=np.nan)
+        norm_df.set_index(["region", "systematic_name"], inplace=True)
+        pivot_norm = norm_df.pivot_table(
+            values="percentage_change",
+            index=["region", "systematic_name"],
+            columns="sample",
+            fill_value=np.nan,
+        )
         # Order samples on the x-axis of heatmap based on ordering given in self.samples_order
         pivot_norm = pivot_norm[self.samples_order]
         pivot_norm_reset = pivot_norm.reset_index()
-        pivot_norm_reset['region_rank'] = pivot_norm_reset['region'].apply(lambda x: self.region_order.index(x) if x in self.region_order else len(self.region_order))
-        pivot_norm_sorted = pivot_norm_reset.sort_values(['region_rank', 'systematic_name']).drop('region_rank', axis=1).set_index(['region', 'systematic_name'])
+        pivot_norm_reset["region_rank"] = pivot_norm_reset["region"].apply(
+            lambda x: (
+                self.region_order.index(x)
+                if x in self.region_order
+                else len(self.region_order)
+            )
+        )
+        pivot_norm_sorted = (
+            pivot_norm_reset.sort_values(["region_rank", "systematic_name"])
+            .drop("region_rank", axis=1)
+            .set_index(["region", "systematic_name"])
+        )
 
         plt.figure(figsize=(30, 20))
-        sns.heatmap(pivot_norm_sorted, cmap="coolwarm", center=0, annot=True, fmt=".2f")#, linewidths=.5, linecolor='gray')
+        sns.heatmap(
+            pivot_norm_sorted, cmap="coolwarm", center=0, annot=True, fmt=".2f"
+        )  # , linewidths=.5, linecolor='gray')
         self.region_divide(pivot_norm_sorted)
         self.sample_divide(pivot_norm_sorted)
         plt.title(f"Post-fit Normalisation Effects (%) {self.Channel}", fontsize=18)
@@ -286,23 +355,23 @@ class PFATableExtractor:
         plt.xticks(fontsize=16)
         plt.xlabel("Sample", fontsize=20)
         plt.ylabel("Region_Systematic", fontsize=20)
-        plt.savefig(f"{save_directory}test_norm_Heat.pdf", bbox_inches='tight')
+        plt.savefig(f"{save_directory}test_norm_Heat.pdf", bbox_inches="tight")
 
 
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = #
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/2l_STXS_BONLY/Fit_2l/"
-    #base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/1l_STXS_BONLY/Fit_1l/"
+    # base_path = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fits/1l_STXS_BONLY/Fit_1l/"
 
     sub_directory = "Tables/"
 
     save_directory = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostFitAcceptance/2l/"
-    #save_directory = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostFitAcceptance/1l/"
+    # save_directory = "/Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_09_10_23/Fit_Studies/PostFitAcceptance/1l/"
 
     # Excluding signal regions for now
     channel = "2l"
-    #channel = "1l"
+    # channel = "1l"
 
     exclude_list = [
         "Pulls_ttH_STXS1_1l.tex",
