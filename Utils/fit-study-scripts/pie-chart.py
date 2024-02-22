@@ -25,12 +25,13 @@ Notes:
 
 """
 
+
 class PieChart:
     def __init__(self):
         pass
 
     def parse_yaml(self, file_name):
-        with open(file_name, 'rb') as f:
+        with open(file_name, "rb") as f:
             data = yaml.safe_load(f)
         return data
 
@@ -47,7 +48,7 @@ class PieChart:
 
     def generate_pie_chart(self, categories, yields, channel_input, region_name):
         def func(pct, allvalues):
-            absolute = int(pct / 100.*np.sum(allvalues))
+            absolute = int(pct / 100.0 * np.sum(allvalues))
             return "{:.1f}%\n({:d} Events)".format(pct, absolute)
 
         colors = [
@@ -57,19 +58,38 @@ class PieChart:
         ]
 
         fig, ax = plt.subplots(figsize=(12, 10))
-        wedges, texts, autotexts = ax.pie(yields, autopct=lambda pct: func(pct, yields),
-                                          textprops=dict(color="black"), colors=colors, pctdistance=0.7, startangle=100,
-                                          wedgeprops=dict(width=0.8, edgecolor='white', linewidth=2))
+        wedges, texts, autotexts = ax.pie(
+            yields,
+            autopct=lambda pct: func(pct, yields),
+            textprops=dict(color="black"),
+            colors=colors,
+            pctdistance=0.7,
+            startangle=100,
+            wedgeprops=dict(width=0.8, edgecolor="white", linewidth=2),
+        )
 
         # Add composition percentages to legend
-        composition_percentages = [f"{yields[i]/sum(yields)*100:.1f}%" for i in range(len(yields))]
-        legend_labels = [f"{categories[i]} ({composition_percentages[i]})" for i in range(len(categories))]
-        ax.legend(wedges, legend_labels, title="Categories", loc="upper right", fontsize=18, title_fontsize=18, bbox_to_anchor=(1.15, 1.0))
+        composition_percentages = [
+            f"{yields[i]/sum(yields)*100:.1f}%" for i in range(len(yields))
+        ]
+        legend_labels = [
+            f"{categories[i]} ({composition_percentages[i]})"
+            for i in range(len(categories))
+        ]
+        ax.legend(
+            wedges,
+            legend_labels,
+            title="Categories",
+            loc="upper right",
+            fontsize=18,
+            title_fontsize=18,
+            bbox_to_anchor=(1.15, 1.0),
+        )
 
         plt.setp(autotexts, size=14, weight="bold")
         plt.setp(texts, size=14)
 
-        ax.set_title(region_name.replace("_", " "), fontsize=24, weight='bold')
+        ax.set_title(region_name.replace("_", " "), fontsize=24, weight="bold")
 
         mplhep.atlas.text(text="Simulation Internal", loc=2, ax=ax, fontsize=20)
 
@@ -82,6 +102,7 @@ class PieChart:
         categories, yields = self.calculate_yields(parsed_data)
         region_name = self.extract_region_name(file_name)
         self.generate_pie_chart(categories, yields, channel, region_name)
+
 
 if __name__ == "__main__":
     yaml_parser = PieChart()
