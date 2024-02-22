@@ -29,6 +29,8 @@ mpl.style.use("seaborn-colorblind")
 
 # Get the current date
 current_date = datetime.datetime.now().strftime("%d_%m_%y")
+
+
 def read_results(fit="bb", data=False, statonly=False):
     fname = '/scratch4/levans/legacy_fit_studies/Fit_Studies_Aug23_INT_NOTE_v0.4_part4_forUnblinding/Results/bb_full.txt"'
     if fit == "bb":
@@ -53,7 +55,9 @@ def read_results(fit="bb", data=False, statonly=False):
             bestfit.append(float(split[2]))
             err_up.append(float(split[4].split(",")[0].strip("()")))
             err_down.append(float(split[4].split(",")[1].strip("()")))
-            sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2 # Calculation for symmetric errors if needed
+            sym_err = (
+                abs(err_up[-1]) + abs(err_down[-1])
+            ) / 2  # Calculation for symmetric errors if needed
             if sym_err > 2:
                 sym_err = 0
             error.append(sym_err)
@@ -74,20 +78,25 @@ def plot_results(with_systs, stat_only):
     n_pois = len(with_systs["labels"])
     fig, ax = plt.subplots(figsize=(10, 5.2))
 
-    spacing_factor = 1.1 # Adjust this value to increase/decrease spacing of mus in the plot
+    spacing_factor = (
+        1.1  # Adjust this value to increase/decrease spacing of mus in the plot
+    )
     y_pos = np.arange(0, n_pois * spacing_factor, spacing_factor)[::-1]
 
     # line through SM
     ax.plot([1, 1], [-1, n_pois - 0.2], "--", color="grey")
 
     # Calculate upward and downward systematic uncertainties via quadrature subtraction
-    syst_err_up = np.sqrt(np.array(with_systs['up'])**2 - np.array(stat_only['up'])**2)
-    syst_err_down = np.sqrt(np.array(with_systs['down'])**2 - np.array(stat_only['down'])**2)
+    syst_err_up = np.sqrt(
+        np.array(with_systs["up"]) ** 2 - np.array(stat_only["up"]) ** 2
+    )
+    syst_err_down = np.sqrt(
+        np.array(with_systs["down"]) ** 2 - np.array(stat_only["down"]) ** 2
+    )
 
     # Store upward and downward statistical uncertainties for plotting
-    stat_err_up = np.array(stat_only['up'])
-    stat_err_down = np.array(stat_only['up'])
-
+    stat_err_up = np.array(stat_only["up"])
+    stat_err_down = np.array(stat_only["up"])
 
     # calculate systematic error via quadrature subtraction (FOR SYMMETRIC ERRORS if needed)
     syst_err = np.sqrt(
@@ -120,7 +129,7 @@ def plot_results(with_systs, stat_only):
     ax.errorbar(
         with_systs["bestfit"],
         y_pos - 0.15,
-        #xerr=[np.array(stat_only['error']), np.array(stat_only['error'])],
+        # xerr=[np.array(stat_only['error']), np.array(stat_only['error'])],
         xerr=[stat_err_down, stat_err_up],
         fmt="o",
         linewidth=15,
@@ -170,7 +179,7 @@ def plot_results(with_systs, stat_only):
             f"{with_systs['bestfit'][i]:.2f}",
             fontsize=15,
             weight="bold",
-            verticalalignment="center"
+            verticalalignment="center",
         )
         # Total uncertainty
         ax.text(
@@ -180,7 +189,7 @@ def plot_results(with_systs, stat_only):
             fontsize=10,
             verticalalignment="center",
             weight="bold",
-            multialignment="center"
+            multialignment="center",
         )
         # Statistical uncertainties
         ax.text(
@@ -189,7 +198,7 @@ def plot_results(with_systs, stat_only):
             f"+{stat_only['up'][i]:.2f}\n-{stat_only['down'][i]:.2f}",
             fontsize=10,
             verticalalignment="center",
-            multialignment="center"
+            multialignment="center",
         )
         # Systematic uncertainties
         ax.text(
@@ -198,7 +207,7 @@ def plot_results(with_systs, stat_only):
             f"+{syst_err_up[i]:.2f}\n-{syst_err_down[i]:.2f}",
             fontsize=10,
             verticalalignment="center",
-            multialignment="center"
+            multialignment="center",
         )
 
     ax.legend(frameon=False, fontsize="large", ncol=2)
@@ -212,7 +221,9 @@ def plot_results(with_systs, stat_only):
     ax.tick_params(direction="in", top=True, right=True, which="both")
     ax.set_xlim([-1, 5.5])
     ax.set_ylim([-1, n_pois + 1.5])
-    major_ticks = np.arange(0, 6, 1)  # Assuming you want major ticks from 0 to 5, spaced by 1
+    major_ticks = np.arange(
+        0, 6, 1
+    )  # Assuming you want major ticks from 0 to 5, spaced by 1
     minor_ticks = np.arange(-1, 6, 0.2)  # Assuming you want minor ticks spaced by 0.5
     ax.set_xticks(major_ticks)
     ax.set_xticks(minor_ticks, minor=True)
@@ -226,21 +237,26 @@ def plot_results(with_systs, stat_only):
         r"$\mu_{t\bar{t}H}$ (450 GeV < $p_T^H$)",
     ]
     ax.set_yticklabels(nice_labels)
-    ax.set_xlabel(r"$\mu_{t\overline{t}H} = \frac{\sigma_{t\overline{t}H}}{\sigma^{\mathrm{SM}}_{t\overline{t}H}}$", fontsize=20, labelpad=10)
+    ax.set_xlabel(
+        r"$\mu_{t\overline{t}H} = \frac{\sigma_{t\overline{t}H}}{\sigma^{\mathrm{SM}}_{t\overline{t}H}}$",
+        fontsize=20,
+        labelpad=10,
+    )
     # Adjust the position of x-axis label
     label = ax.xaxis.get_label()
     x, y = label.get_position()
-    offset_value = 0.35 # Adjust this value to your liking
+    offset_value = 0.35  # Adjust this value to your liking
     label.set_position((x + offset_value, y))
 
     # Add a grid to the plot if you want
-    #ax.grid(which='both')        # Display major and minor grid lines
-    #ax.grid(which='minor', alpha=0.2)  # Make minor grid lines less prominent
-    #ax.grid(which='major', alpha=0.5)  # Adjust alpha as needed
+    # ax.grid(which='both')        # Display major and minor grid lines
+    # ax.grid(which='minor', alpha=0.2)  # Make minor grid lines less prominent
+    # ax.grid(which='major', alpha=0.5)  # Adjust alpha as needed
 
     fig.tight_layout()
     plt.savefig(filename_pdf)
     plt.savefig(filename_png)
+
 
 if __name__ == "__main__":
     fit = "bb"

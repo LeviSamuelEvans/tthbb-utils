@@ -35,6 +35,7 @@ import mplhep
 
 PRUNING_THRESHOLD = 0.40
 
+
 def load_matrices(
     m1_path: str, m2_path: str
 ) -> Tuple[List[str], np.ndarray, np.ndarray]:
@@ -57,6 +58,7 @@ def load_matrices(
 
     return common_params_list, m1_corr_rows, m2_corr_rows
 
+
 def get_diff_with_threshold(
     labels: List[str], m1: np.ndarray, m2: np.ndarray, threshold=0.1
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -68,8 +70,8 @@ def get_diff_with_threshold(
         max_cols = max(m1.shape[1], m2.shape[1])
         m1_resized = np.zeros((max_rows, max_cols))
         m2_resized = np.zeros((max_rows, max_cols))
-        m1_resized[:m1.shape[0], :m1.shape[1]] = m1
-        m2_resized[:m2.shape[0], :m2.shape[1]] = m2
+        m1_resized[: m1.shape[0], : m1.shape[1]] = m1
+        m2_resized[: m2.shape[0], : m2.shape[1]] = m2
         m1 = m1_resized
         m2 = m2_resized
         print(len(labels))
@@ -78,7 +80,9 @@ def get_diff_with_threshold(
 
     # Check if the length of labels matches the number of rows/columns in the matrices
     if len(labels) != m1.shape[0] or len(labels) != m1.shape[1]:
-        raise ValueError("The length of labels does not match the number of rows/columns in the matrices.")
+        raise ValueError(
+            "The length of labels does not match the number of rows/columns in the matrices."
+        )
 
     corr_mat_diff = m1 - m2
     delete_indices = np.where(np.all(np.abs(corr_mat_diff) < threshold, axis=0))
@@ -87,6 +91,7 @@ def get_diff_with_threshold(
     )
     labels_pruned = np.delete(labels, delete_indices)
     return labels_pruned, corr_mat_diff_pruned
+
 
 def visualize_corr_mat(
     labels: np.ndarray, corr_mat: np.ndarray, figure_path: str
@@ -118,7 +123,7 @@ def visualize_corr_mat(
     ax.tick_params(which="minor", size=0)
 
     fig.colorbar(im, ax=ax)
-    ax.set_aspect('equal', 'box')
+    ax.set_aspect("equal", "box")
     fig.tight_layout(pad=1.1)
     fig.subplots_adjust(top=0.90, bottom=0.15)
     mplhep.atlas.text(text="Internal", loc=0, fontsize=16, ax=None)
@@ -132,6 +137,7 @@ def visualize_corr_mat(
     print(f"saving figure as {figure_path}")
     fig.savefig(figure_path)
     plt.close(fig)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
