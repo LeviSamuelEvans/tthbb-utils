@@ -96,7 +96,7 @@ def plot_results(with_systs, stat_only):
 
     # Store upward and downward statistical uncertainties for plotting
     stat_err_up = np.array(stat_only["up"])
-    stat_err_down = np.array(stat_only["up"])
+    stat_err_down = np.array(stat_only["down"])
 
     # calculate systematic error via quadrature subtraction (FOR SYMMETRIC ERRORS if needed)
     syst_err = np.sqrt(
