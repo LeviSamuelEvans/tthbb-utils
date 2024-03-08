@@ -5,6 +5,7 @@
 === Python Script to run Condor batch jobs for different steps in TRExFitter ===
 ================================================================================
 
+
  - v0.1 named TRExSubmit_old.py now 06.01.23 Kept for posterity
 
  - v1.0 New features:
@@ -35,7 +36,6 @@ Develop in this branch then merge in once ready.
       filesystem
     - Convert submission scripts to DAG for automatic hupdate jobs with split systematics
     - Use htcondor API library for job submission directly instead of using subprocess
-    - Add ability to submit Likelihood Scan jobs (via cmd line LHscanStep=i)
     - Add ability to submit Bootstrap jobs
     - Add ability to submit group impacts (via SubCategory option in syst blocks)
 """
@@ -65,6 +65,7 @@ class TRExSubmit:
         integrate_everything: bool = False,
         split_regions: bool = True,
         split_systs: bool = True,
+        split_scan: bool = True,
         num_syst_per_job: int = 20,
         extra_opts: list = None,
         run_time: int = None,
@@ -93,6 +94,8 @@ class TRExSubmit:
         split_systs : bool, optional
             Whether to split supported actions by systematic in each region (`True`)
             or not (`False`). By default, such actions are split, by default True.
+        split_scan : bool, optional
+            Whether to split the likelihood scan into steps (`True`) or not (`False`).
         num_syst_per_job : int, optional
             How many systematics to bundle per batch job during the `n` action, if
             neither `split_regions` nor `split_systs` is engaged, by default 20
@@ -177,6 +180,7 @@ class TRExSubmit:
             if ("n" in self.actions or "b" in self.actions)
             else self.split_systs
         )
+        self.split_scan = split_scan if "x" in self.actions else False
         self.num_syst_per_job = num_syst_per_job if self.split_systs else None
         self.extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
@@ -188,6 +192,8 @@ class TRExSubmit:
             self.granularity = "syst"
         elif not self.split_regions and self.split_systs:
             self.granularity = "ranking"
+        elif self.split_scan:
+            self.granularity = "lhscan"
 
     def build_and_submit(
         self,
@@ -894,6 +900,42 @@ class TRExSubmit:
         # Finally, update the class member with the selected configs
         self.config_list = tmp_config_list
 
+    def _get_lhscan_steps(self, config: str) -> int:
+        """Extracts LHscanSteps from TRExFitter config.
+
+        Parameters
+        ----------
+        config : str
+            Path to TRExFitter config.
+
+        Returns
+        -------
+        int
+            Number of steps for the likelihood scan.
+        """
+
+        lhscan_steps = 30  # Default value if LHscanSteps key is not found in config
+        in_fit_section = False
+
+        with open(config) as f:
+            for line in f:
+                # Check if we are in the fit block of the config...
+                if line.strip().startswith("Fit:"):
+                    in_fit_section = True
+                elif in_fit_section and line.strip().startswith("LHscanSteps:"):
+                    lhscan_steps = int(line.split(":")[1].strip())
+                    print(
+                        f"INFO: Found {lhscan_steps} steps for the likelihood scan in '{config}'"
+                    )
+                    break  # We found the key, so we can stop looking
+                elif in_fit_section and line.strip() and not line.startswith("  "):
+                    in_fit_section = False
+                    print(
+                        f"INFO: You did not specify 'LHscanSteps' in the fit block of '{config}'. Using default value of 30"
+                    )
+
+        return lhscan_steps
+
     def _build_job_file(
         self,
         config_region_syst_dict: dict,
@@ -935,6 +977,11 @@ class TRExSubmit:
                     outlines.append(
                         f"{config} {short_config} {bundle_name} {syst_bundle}"
                     )
+
+            elif self.split_scan:
+                lhscan_steps = self._get_lhscan_steps(config)
+                for step in range(1, lhscan_steps + 1):
+                    outlines.append(f"{config} {short_config} {step}")
             else:
                 outlines.append(f"{config} {short_config}")
 
@@ -973,6 +1020,7 @@ class TRExSubmit:
         opts += (
             ["Ranking=${systs}"] if self.split_systs and not self.split_regions else []
         )
+        opts += ["LHscanStep=${steps}"] if self.split_scan else []
         opts += [] if extra_opts is None else list(extra_opts)
         option_string = ":".join(opts)
 
@@ -998,6 +1046,10 @@ class TRExSubmit:
             if self.split_systs and not self.split_regions:
                 f.write(
                     "systs=${2:?Systematics should be supplied as the second parameter but were not!}\n"
+                )
+            if self.split_scan:
+                f.write(
+                    "steps=${2:?Step should be supplied as the second parameter but was not!}\n"
                 )
             f.write("\n")
             f.write(
@@ -1155,6 +1207,11 @@ class TRExSubmit:
             "script_args": ["Config", "Systematics"],
             "log_args": ["ShortConfig", "Suffix"],
         },
+        "lhscan": {
+            "job_file": ["Config", "ShortConfig", "Step"],
+            "script_args": ["Config", "Step"],
+            "log_args": ["ShortConfig", "Step"],
+        },
     }
 
     SUB_DIRS = {
@@ -1267,6 +1324,12 @@ if __name__ == "__main__":
         default=None,
         help="Runtime for the jobs in seconds.",
     )
+    parser.add_argument(
+        "--split-scan",
+        action="store_true",
+        dest="split_scan",
+        help="Instructs TRExFitter to carry out the 'x' action in multiple jobs for each step of the likelihood scan, specified in the config file.",
+    )
 
     job_split_procedure = parser.add_mutually_exclusive_group()
     job_split_procedure.add_argument(
@@ -1311,6 +1374,7 @@ if __name__ == "__main__":
         integrate_everything=args.integrate_everything,
         split_regions=args.split_regions,
         split_systs=args.split_nps,
+        split_scan=args.split_scan,
         num_syst_per_job=args.num_nps_per_job,
         extra_opts=args.trex_options,
         run_time=args.run_time,
