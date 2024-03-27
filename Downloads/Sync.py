@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 
-# Remember to set up the ssh keys for the remote server first! (i.e use kinit to get a token)
-
 """
-Example usage:
+========================
+== Level-2 Downloader ==
+========================
 
-python3 Sync.py --source leevans@lxplus.cern.ch:/eos/atlas/atlascerngroupdisk/phys-higgs/HSG8/ttHbb_legacy_L2ntuples/sys_v2.5 
---destination /scratch4/levans/L2_ttHbb_Production_212238_v5 --bwlimit 50000 --exclude "*.root" --retry --filename L2_Discriminant_070124.log
+Description:
+    - Script to facilate the download of a Level-2 production.
+
+Usage:
+    - run ./sync.py -h for help.
+
+Notes:
+    - Remember to set up the ssh keys for the remote server first! (i.e use kinit to get a token).
 
 """
 
@@ -18,18 +24,25 @@ from multiprocessing import cpu_count
 import psutil
 
 # setting some constants for default values
-DEFAULT_BW_LIMIT = 50000 # e.g. 50 MB/s
-DEFAULT_LOG_FILENAME = 'L2_Discriminant_070124.log'
-SEPARATE_LOG_FILENAME = (f'{DEFAULT_LOG_FILENAME}-additonal-info.log')
+DEFAULT_BW_LIMIT = 50000  # e.g. 50 MB/s
+DEFAULT_LOG_FILENAME = "L2_production.log"
+SEPARATE_LOG_FILENAME = f"{DEFAULT_LOG_FILENAME}-additonal-info.log"
+
 
 def setup_logging(log_filename, separate_log_filename):
     # setting up the outut logging file
-    logging.basicConfig(filename=log_filename, level=logging.INFO,
-                        format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(
+        filename=log_filename,
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     # separate logger file for more detailed info
-    separate_logger = logging.getLogger('separate')
+    separate_logger = logging.getLogger("separate")
     separate_handler = logging.FileHandler(separate_log_filename)
-    separate_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    separate_formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
     separate_handler.setFormatter(separate_formatter)
     separate_logger.addHandler(separate_handler)
     separate_logger.setLevel(logging.INFO)
@@ -41,13 +54,14 @@ def setup_logging(log_filename, separate_log_filename):
 
     return separate_logger
 
+
 def download_directory(directory, args, separate_logger):
     try:
         source = f"{args.source}/{directory}"
         destination = f"{args.destination}/{directory}"
-        #destination = f"{args.destination}/" # for updating individual files
+        # destination = f"{args.destination}/" # for updating individual files
 
-        rsync_path = "rsync" # or set /usr/bin/rsync if not in PATH
+        rsync_path = "rsync"  # or set /usr/bin/rsync if not in PATH
         rsync_args = [rsync_path, "-vzraWPe", "ssh", f"--bwlimit={args.bwlimit}"]
         # todo: add cmd line args in script for rysnc args
 
@@ -59,10 +73,12 @@ def download_directory(directory, args, separate_logger):
         logging.info(f"Running rsync command: {' '.join(rsync_args)}")
         separate_logger.info(f"Running rsync command: {' '.join(rsync_args)}")
 
-        process = subprocess.run(rsync_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process = subprocess.run(
+            rsync_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
 
-        stdout_str = process.stdout.decode('utf-8')
-        stderr_str = process.stderr.decode('utf-8')
+        stdout_str = process.stdout.decode("utf-8")
+        stderr_str = process.stderr.decode("utf-8")
 
         logging.info(f"Output for {directory}:\n{stdout_str}\n{stderr_str}")
         separate_logger.info(f"Output for {directory}:\n{stdout_str}\n{stderr_str}")
@@ -75,40 +91,79 @@ def download_directory(directory, args, separate_logger):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run parallel rsync downloads of directories from a remote server")
-    parser.add_argument('--source', type=str, required=True, help='Source directory')
-    parser.add_argument('--destination', type=str, required=True, help='Destination directory')
-    parser.add_argument('--bwlimit', type=int, default=DEFAULT_BW_LIMIT, help='Bandwidth limit for rsync (in KB/s)')
-    parser.add_argument('--exclude', type=str, help='Pattern to exclude from rsync')
-    parser.add_argument('--retry', action='store_true', help='Retry failed downloads')
-    parser.add_argument('--filename', type=str, default=DEFAULT_LOG_FILENAME, help='Log filename')
+    parser = argparse.ArgumentParser(
+        description="Run parallel rsync downloads of directories from a remote server"
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        required=True,
+        help="Source directory"
+    )
+
+    parser.add_argument(
+        "--destination",
+        type=str,
+        required=True,
+        help="Destination directory"
+    )
+
+    parser.add_argument(
+        "--bwlimit",
+        type=int,
+        default=DEFAULT_BW_LIMIT,
+        help="Bandwidth limit for rsync (in KB/s)",
+    )
+
+    parser.add_argument(
+        "--exclude",
+        type=str,
+        help="Pattern to exclude from rsync")
+
+    parser.add_argument(
+        "--retry",
+        action="store_true",
+        help="Retry failed downloads")
+
+    parser.add_argument(
+        "--filename",
+        type=str,
+        default=DEFAULT_LOG_FILENAME,
+        help="Log filename"
+    )
+
     args = parser.parse_args()
 
     separate_logger = setup_logging(args.filename, SEPARATE_LOG_FILENAME)
 
     subdirectories = [
-                        '1l/5j3b_discriminant_ttH/',
-                        '1l/5j3b_discriminant_ttlight/',
-                        '1l/5j3b_discriminant_ttc/',
-                        '1l/5j3b_discriminant_ttbb/',
-                        '1l/5j3b_discriminant_ttb/',
-                        '1l/5j3b_discriminant_ttB/',
-                        '1l/boosted/',
-                        '2l/3j3b_discriminant_ttH/',
-                        '2l/3j3b_discriminant_ttlight/',
-                        '2l/3j3b_discriminant_ttc/',
-                        '2l/3j3b_discriminant_ttbb/',
-                        '2l/3j3b_discriminant_ttb/',
-                        '2l/3j3b_discriminant_ttB/',
-                        '2l/boosted_STXS5/',
-                        '2l/boosted_STXS6/',
-                      ]
+        "1l/5j3b_discriminant_ttH/",
+        "1l/5j3b_discriminant_ttlight/",
+        "1l/5j3b_discriminant_ttc/",
+        "1l/5j3b_discriminant_ttbb/",
+        "1l/5j3b_discriminant_ttb/",
+        "1l/5j3b_discriminant_ttB/",
+        "1l/boosted/",
+        "2l/3j3b_discriminant_ttH/",
+        "2l/3j3b_discriminant_ttlight/",
+        "2l/3j3b_discriminant_ttc/",
+        "2l/3j3b_discriminant_ttbb/",
+        "2l/3j3b_discriminant_ttb/",
+        "2l/3j3b_discriminant_ttB/",
+        "2l/boosted_STXS5/",
+        "2l/boosted_STXS6/",
+    ]
     directories = subdirectories
 
     # set up the executor to run the downloads in parallel, with a max of 4 threads to prevent overloading the server
     # i.e set num to how many concurrent downloads you want, use with caution...
     with ThreadPoolExecutor(max_workers=min(4, cpu_count())) as executor:
-        future_to_dir = {executor.submit(download_directory, directory, args, separate_logger): directory for directory in directories}
+        future_to_dir = {
+            executor.submit(
+                download_directory, directory, args, separate_logger
+            ): directory
+            for directory in directories
+        }
         retry_dirs = []
         # now, wait for the downloads to finish and retry any failed downloads if this is requested
         for future in as_completed(future_to_dir):
