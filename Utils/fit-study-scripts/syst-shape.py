@@ -38,6 +38,7 @@ def get_signal_path(channel):
         return base_path + f"{channel}/3j3b_discriminant_ttH/"
     raise ValueError("Invalid channel specified.")
 
+
 # signal samples
 signal_files = [
     "ttH_PP8_mc16a.root",
@@ -51,7 +52,6 @@ syst_uncertainty_files = [
     "ttbb_PP8_pthard1_mc16a.root",
     "ttbb_PP8_pthard1_mc16d.root",
     "ttbb_PP8_pthard1_mc16e.root",
-
     #  = dipole PS =
     # "ttbb_PP8_dipolerecoil_mc16a_AFII.root",
     # "ttbb_PP8_dipolerecoil_mc16d_AFII.root",
@@ -123,8 +123,9 @@ def parse_arguments():
 
 def xsec_norm(events):
     # values taken from https://gitlab.cern.ch/atlasHTop/ANA-HIGG-2020-24/ttHbb-fits/-/blob/master/legacy_analysis/replacements.yaml?ref_type=heads
-    return events * 1.083924506 # pThard1
+    return events * 1.083924506  # pThard1
     # return events *
+
 
 def symmetrise_variation(nominal_hist, variation_hist):
     return 2 * nominal_hist - variation_hist
@@ -202,6 +203,7 @@ def normalise_histogram(hist, bin_edges):
     bin_widths = np.diff(bin_edges)
     hist_norm = hist  # / (hist.sum() * bin_widths)  # integral of 1 [removed this form of normalisation]
     return hist_norm
+
 
 def normalise_signal_to_nominal(signal_hist, nominal_hist):
     """
