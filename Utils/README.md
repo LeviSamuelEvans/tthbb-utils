@@ -6,7 +6,7 @@ This folder contains scripts for analysing fit results, and some additional misc
 
 ### Fit Studies
 
-This folder contains scripts that can be used to facilitate the study of fit results obtained using `TRExFitter`. This includes:
+The folder `fit-study-scripts` contains scripts that can be used to facilitate the study of fit results obtained using `TRExFitter`. This includes:
 
 - `background-prediction.py:`: A script for comparing background predictions between different fit setups.
 - `corr-diff.py:`: A script for comparing correlation martices between different fit setups and channels.
@@ -22,9 +22,13 @@ This folder contains scripts that can be used to facilitate the study of fit res
 
 ### Some additional scripts
 
-This folder contains miscellaneous analysis study scripts. This includes:
+The folder `additional-study-scripts` contains miscellaneous analysis study scripts. This includes:
 
 - `fsr_weights.py:` A script to save the final-state radiation weights to a `.csv` file and subsequently plot the distribution of these weights.
 - `transformer-correlations:` A script to derive the linear correlations between discriminating observables and the legacy transfomer discriminants, used as the fitting observables. This script was kindly provided by Luisa Carvalho (thanks!).
 
 For further details on each script, please refer to the descriptions included in the relevant python script.
+
+### Additional utilities
+
+The folder `utils` contains any extra scripts that have been used for the analysis.
