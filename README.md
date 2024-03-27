@@ -20,7 +20,7 @@ parallel to speed up the download process.
 This folder contains the `rucio-download.py` script that can be used to download L1 productions using Rucio.
 
 ##### SanityChecks
-This folder contains the `EventYields.cpp` script, that can be used to perform a sanity check on the event yields in the level 2 production. This script is old now, and a much better yield checker can be found at Chris Scheulen's very nice tool here: `https://gitlab.cern.ch/utils_chscheul/naf_utils/yieldcalc`.
+This folder contains the `EventYields.cpp` script, that can be used to perform a sanity check on the event yields in the level 2 production. This script is old now, and a much better yield checker can be found at Chris Scheulen's very nice tool here: https://gitlab.cern.ch/utils_chscheul/naf_utils/yieldcalc.
 
 ##### Utils
 This folder contains a collection of scripts used to perform studies related to the profile likelihood fit results of the analysis, and some additional study scripts. These can be found in `fit-study-scripts` and `additional-study-scripts`. Furthermore, the `utils` folder contains some additional utility scripts.
