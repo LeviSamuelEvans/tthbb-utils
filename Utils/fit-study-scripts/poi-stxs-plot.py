@@ -103,28 +103,6 @@ def plot_results(with_systs, stat_only):
         np.asarray(with_systs["error"]) ** 2 - np.asarray(stat_only["error"]) ** 2
     )
 
-    # # stat-only error (if using symmetric errors for simplicity)
-    # ax.errorbar(
-    #     with_systs["bestfit"],
-    #     y_pos - 0.15,
-    #     xerr=stat_only["error"],
-    #     fmt="o",
-    #     linewidth=15,
-    #     color="C4",
-    #     label="stat. only",
-    # )
-
-    # #syst-only error (if using symmetric errors for simplicity)
-    # ax.errorbar(
-    #     with_systs["bestfit"],
-    #     y_pos - 0.15,
-    #     xerr=syst_err,
-    #     fmt="o",
-    #     linewidth=8,
-    #     color="C5",
-    #     label="syst. only",
-    # )
-
     # stat-only error (using asymmetric errors for better representation)
     ax.errorbar(
         with_systs["bestfit"],
