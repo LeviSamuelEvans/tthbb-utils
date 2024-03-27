@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import awkward as ak
 import matplotlib.pyplot as plt
@@ -14,7 +16,7 @@ Description:
     - Small script to compare systematic variations to normalised signal contributions in the ttH signal region(s).
 
 Usage:
-    - run like so: python shape.py -c 1l -r STXS3 -s ttH3 -p /path/to/save/figures
+    - run like so: ./shape.py -c 1l -r STXS3 -s ttH3 -p /path/to/save/figures
 
 Notes:
     - Currently, the systematic variation is hard-coded, along with the signal samples to use.
