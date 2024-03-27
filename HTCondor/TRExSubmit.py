@@ -5,8 +5,7 @@
 === Python Script to run Condor batch jobs for different steps in TRExFitter ===
 ================================================================================
 
-
- - v0.1 named TRExSubmit_old.py now 06.01.23 Kept for posterity
+Description:
 
  - v1.0 New features:
     - Split by systematic as well as region
@@ -29,7 +28,6 @@
     - Option to select configs to run in jobs (mostly for multi-fit support)
     - Possibility to run ranking jobs per systematic
 
-Develop in this branch then merge in once ready.
 
  TODO: Nice to haves:
     - Add deployment possibilities via tarballs for batch systems where submit and worker nodes do not share a
