@@ -75,7 +75,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Plot 1D likelihood scans for given systematics."
     )
-    
+
     parser.add_argument(
         "-f",
         "--folder-path",
@@ -84,10 +84,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "-p",
-        "--save-path",
-        type=str,
-        help="path of the folder to save the plots."
+        "-p", "--save-path", type=str, help="path of the folder to save the plots."
     )
 
     parser.add_argument(
