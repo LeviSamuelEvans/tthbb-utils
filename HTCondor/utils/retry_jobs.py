@@ -5,14 +5,22 @@ import re
 import argparse
 
 """
-This script defines a class `CondorJobHandler` that handles failed Condor jobs by checking
-for errors in the job output logs, extracting the names of the failed jobs, and creating
-a new arguments file for retrying the failed jobs.
+=========================
+=== Retry failed jobs ===
+=========================
 
-Run ./retry_jobs.py -h for help on how to use the script.
+Description:
+    - This script handles failed Condor jobs by checking for errors in the job output logs,
+      extracting the names of the failed jobs, and creating a new arguments file for
+      retrying the failed jobs.
 
-Note: You'll need to copy the new output arguments file to the base directory of the condor workspace.
-       (i.e. from original TRExSubmit script output folder)
+Usage:
+    -  ./retry_jobs.py -h for help on how to use the script.
+
+Note:
+    - You'll need to copy the new output arguments file to the base directory
+      of the condor workspace. (i.e. from original TRExSubmit script output folder)
+      
 TODO:
     - Add job number to log so we can repeat for multiple jobs
 """
@@ -150,7 +158,7 @@ if __name__ == "__main__":
         "--directory",
         type=str,
         required=True,
-        help="Directory containing the .err files.",
+        help="The directory containing the .err files inside the condor workspace.",
     )
 
     parser.add_argument(
@@ -158,11 +166,15 @@ if __name__ == "__main__":
         "--output",
         type=str,
         required=True,
-        help="The name to call the output log file with job" "failure information",
+        help="The name to call the output log file with job failure information",
     )
 
     parser.add_argument(
-        "-a", "--args", type=str, required=True, help="The original job arguments file."
+        "-a",
+        "--args",
+        type=str,
+        required=True,
+        help="The original job arguments file used for the Condor jobs.",
     )
 
     parser.add_argument(
@@ -170,18 +182,23 @@ if __name__ == "__main__":
         "--newargs",
         type=str,
         required=True,
-        help="The name of the new arguments file.",
+        help="The name of the new arguments file to be created for retrying the failed jobs."
+        "Please then copy this to the base directory of the condor workspace.",
     )
 
     parser.add_argument(
-        "-s", "--steps", type=str, required=True, help="The trex-fitter step used."
+        "-s",
+        "--steps",
+        type=str,
+        required=True,
+        help="The trex-fitter step used for the Condor jobs.",
     )
 
     parser.add_argument(
         "-e",
         "--error",
         action="append",
-        help="Additional error message to check for in the job output logs. "
+        help="Additional error message to check for in the job output logs."
         "Can be specified multiple times.",
     )
 
