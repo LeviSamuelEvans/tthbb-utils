@@ -70,3 +70,26 @@ where the options are the following:
 The script will then create a new job arguments files you can use to re-run the failed jobs. An additional log file will also be created to log the reason for the job failure.
 
 For further details on these running options and their usage, refer to the script's help messege by running `python3 retry_jobs -h`.
+
+##### Merging
+In order to merge the generated histograms together in the case of splitting by region and systematic, the
+`merge-histos.py` script can be used. This requires a yaml configuration file, with a list of the associated root
+histogram region files that TRExFitter outputs, along with all the names of the systematic suffixes from the
+configuration file.
+
+This script uses the `hupdate.exe` executable that comes packaged in the binary folder of TRExFitter. Therefore, to use
+this script you will need to have TRExFitter compiled.
+
+Alternatively, for manual merging, you can also try out the following bash-snippet:
+```bash
+# Compile TRExFitter and source its setup.sh to get access to `hupdate.exe`
+cd <ResultsFolder>
+# <Systematics_Suffix> is a suffix common to all regions to somehow get the region names for `new_file`
+#  - In the case of grouped systematics in the submit script, `_Syst_group_0000` should do for this
+#  - If one systematic per job is submitted, pick one common to all configs and regions (or run multiple times...)
+for file in $(ls *<Systematics_Suffix>.root); do
+  new_file=$(echo $file | sed 's/_Syst_group_0000\.root//g')
+  files=($(ls ${new_file}*))
+  hupdate.exe ${new_file}.root ${files}
+done
+```
