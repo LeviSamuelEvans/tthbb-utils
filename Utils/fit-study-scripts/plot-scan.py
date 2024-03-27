@@ -17,7 +17,6 @@ Description:
 
 Usage:
     - ./plot-scan.py -f <folder-path> -s <systematics> -p <save-path>
-    - you will then be prompted to enter the path to your YAML file (pre or post-fit) and the channel
 
 Notes:
     - Requires TRExFitter output YAML files
@@ -76,15 +75,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Plot 1D likelihood scans for given systematics."
     )
+    
     parser.add_argument(
         "-f",
         "--folder-path",
         type=str,
         help="Path to the folder containing scan YAML files.",
     )
+
     parser.add_argument(
-        "-p", "--save-path", type=str, help="path of the folder to save the plots."
+        "-p",
+        "--save-path",
+        type=str,
+        help="path of the folder to save the plots."
     )
+
     parser.add_argument(
         "-s",
         "--systematics",
