@@ -46,3 +46,27 @@ The available options are then the following:
 | `--nps-per-job`           | Specify the number of nuisance parameters to run per `n`-/`r`-job (The default is 30).                               |
 
 For further details on these running options and their usage, refer to the script's help messege by running `python3 TRExSubmit.py -h`.
+
+#### Handling Failed Jobs
+Additionally, inside the `utils` folder of `HTCondor`, you will find a script, `retry_jobs.py`. In the case that some jobs failed during the execution, this script can be used to identify and resubmit the failed jobs.
+
+To use the script, run the script with the following command-line arguments:
+
+```
+python3 retry_jobs.py -d <directory> -o <output_log> -a <original_args_file> -n <new_args_file> -t <trex-fitter step> -e "CustomError1" -e "CustomError2"
+```
+
+where the options are the following:
+
+| Option              | Description                                                                    |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `-d`, `--directory` | Directory containing the `.err` files (logs) of the failed jobs.               |
+| `-o`, `--output`    | The name of the output log file to store job failure information.              |
+| `-a`, `--args`      | The original job arguments file used by `TRExSubmit`.                          |
+| `-n`, `--newargs`   | The name of the new arguments file to be created for retrying the failed jobs. |
+| `-s`, `--steps`     | The TRExFitter step used (e.g., `n`, `f`, `fp`, etc.).                         |
+| `-e`, `--error`     | Additional error messages to search for in .err log files                      |
+
+The script will then create a new job arguments files you can use to re-run the failed jobs. An additional log file will also be created to log the reason for the job failure.
+
+For further details on these running options and their usage, refer to the script's help messege by running `python3 retry_jobs -h`.
