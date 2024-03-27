@@ -32,7 +32,6 @@ def load_yaml_data(base_path, region, fit_type):
         data = yaml.safe_load(f)
     return data
 
-
 def collect_data(base_path, regions):
     """Collect pre-fit and post-fit data for all regions"""
     data_dict = {}
@@ -43,14 +42,12 @@ def collect_data(base_path, regions):
         }
     return data_dict
 
-
 def get_yield_for_sample(data, sample_name):
     """Get yield for a given sample name"""
     for sample in data["Samples"]:
         if sample["Name"] == sample_name:
             return sample["Yield"]
     return []
-
 
 def calculate_ratio(data_dict, sample_name, region):
     """Calculate post-fit to pre-fit yield ratio for a sample in a region"""
@@ -63,7 +60,6 @@ def calculate_ratio(data_dict, sample_name, region):
 
     # Avoid division by zero
     return [p / pre if pre != 0 else 0 for p, pre in zip(postfit_yield, prefit_yield)]
-
 
 def calculate_relative_difference(data_dict, sample_name, region):
     """Calculate (Post - Pre) / Post for a sample in a region"""
@@ -87,7 +83,7 @@ def plot_ratio(base_path, data_dict, sample_name, region):
     bin_edges = data_dict[region]["prefit"]["Figure"][0]["BinEdges"]
 
     # Modify the ratio list to extend its length by 1
-    ratio.append(ratio[-1])  # Appending the last ratio value
+    ratio.append(ratio[-1])
 
     sample_color = color_dict.get(
         sample_name, "black"
@@ -162,14 +158,12 @@ def plot_one_sample_across_regions(
 ):
     """Plot a single sample across all regions on the same plot"""
 
-    # Prepare the plot
     plt.figure(figsize=(18, 8))
 
     for region in region_list:
         ratio = calculate_ratio(data_dict, sample_name, region)
         bin_edges = data_dict[region]["prefit"]["Figure"][0]["BinEdges"]
 
-        # Using the previous approach to extend ratio and bin_edges
         ratio.append(ratio[-1])
         bin_centers = [
             (bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(bin_edges) - 1)
@@ -189,7 +183,7 @@ def plot_one_sample_across_regions(
     # Setting up plot aesthetics
     plt.xlabel(
         "Relative NN Discriminant"
-    )  # You may need to adjust this depending on your data
+    )
     plt.ylabel(f"Post-fit / Pre-fit")
     plt.title(f"{sample_name} across All Regions", fontsize=20, loc="right")
     mplhep.atlas.text(text="Internal", loc=0, fontsize=20, ax=None)
