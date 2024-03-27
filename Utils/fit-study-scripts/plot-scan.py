@@ -1,9 +1,29 @@
+#!/usr/bin/env python3
+
 import os
 import yaml
 import matplotlib.pyplot as plt
 import glob
 import mplhep as hep
 import argparse
+
+"""
+===========================
+== Likelihood Scan plots ==
+===========================
+
+Description:
+    - Script to plot the 1D likelihood scan for a given systematic.
+
+Usage:
+    - ./plot-scan.py -f <folder-path> -s <systematics> -p <save-path>
+
+Notes:
+    - Requires TRExFitter output YAML files
+    - Configure the script
+
+"""
+
 
 plt.style.use(hep.style.ROOT)
 
@@ -55,15 +75,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Plot 1D likelihood scans for given systematics."
     )
+
     parser.add_argument(
         "-f",
         "--folder-path",
         type=str,
         help="Path to the folder containing scan YAML files.",
     )
+
     parser.add_argument(
         "-p", "--save-path", type=str, help="path of the folder to save the plots."
     )
+
     parser.add_argument(
         "-s",
         "--systematics",

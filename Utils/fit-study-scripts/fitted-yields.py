@@ -87,7 +87,7 @@ def plot_ratio(base_path, data_dict, sample_name, region):
     bin_edges = data_dict[region]["prefit"]["Figure"][0]["BinEdges"]
 
     # Modify the ratio list to extend its length by 1
-    ratio.append(ratio[-1])  # Appending the last ratio value
+    ratio.append(ratio[-1])
 
     sample_color = color_dict.get(
         sample_name, "black"
@@ -162,14 +162,12 @@ def plot_one_sample_across_regions(
 ):
     """Plot a single sample across all regions on the same plot"""
 
-    # Prepare the plot
     plt.figure(figsize=(18, 8))
 
     for region in region_list:
         ratio = calculate_ratio(data_dict, sample_name, region)
         bin_edges = data_dict[region]["prefit"]["Figure"][0]["BinEdges"]
 
-        # Using the previous approach to extend ratio and bin_edges
         ratio.append(ratio[-1])
         bin_centers = [
             (bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(bin_edges) - 1)
@@ -187,9 +185,7 @@ def plot_one_sample_across_regions(
         )
 
     # Setting up plot aesthetics
-    plt.xlabel(
-        "Relative NN Discriminant"
-    )  # You may need to adjust this depending on your data
+    plt.xlabel("Relative NN Discriminant")
     plt.ylabel(f"Post-fit / Pre-fit")
     plt.title(f"{sample_name} across All Regions", fontsize=20, loc="right")
     mplhep.atlas.text(text="Internal", loc=0, fontsize=20, ax=None)
