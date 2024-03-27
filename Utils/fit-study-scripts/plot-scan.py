@@ -1,9 +1,30 @@
+#!/usr/bin/env python3
+
 import os
 import yaml
 import matplotlib.pyplot as plt
 import glob
 import mplhep as hep
 import argparse
+
+"""
+===========================
+== Likelihood Scan plots ==
+===========================
+
+Description:
+    - Script to plot the 1D likelihood scan for a given systematic.
+
+Usage:
+    - ./plot-scan.py -f <folder-path> -s <systematics> -p <save-path>
+    - you will then be prompted to enter the path to your YAML file (pre or post-fit) and the channel
+
+Notes:
+    - Requires TRExFitter output YAML files
+    - Configure the script
+
+"""
+
 
 plt.style.use(hep.style.ROOT)
 
