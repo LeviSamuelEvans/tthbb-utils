@@ -20,7 +20,7 @@ TODO:
     - Add job number to log so we can repeat for multiple jobs
 """
 
-# User-specified errors to check for in the job output logs
+# Default errors to check for in the job output logs
 ERROR_MESSAGES = [
     "trex-fitter: command not found",
     "Error in <TFile::TFile>:",
@@ -41,7 +41,7 @@ class CondorJobHandler:
 
     def __init__(self, directory, output_log, original_args_file, new_args_file, steps) -> None:
         """
-        Initializes a CondorJobHandler object with the given directory, output log file,
+        Initialises a CondorJobHandler object with the given directory, output log file,
         original arguments file, new arguments file and trex step.
 
         Args:
