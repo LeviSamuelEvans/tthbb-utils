@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import mplhep
 import numpy as np
 import yaml
+import warnings
 
 """
 ===================
@@ -26,6 +27,10 @@ Notes:
     - source /cvmfs/sft.cern.ch/lcg/views/dev3/latest/x86_64-centos7-gcc11-opt/setup.sh if using lxplus
 
 """
+
+# just suppress the warnings ( RuntimeWarning: invalid value encountered in log10
+# majorstep_no_exponent = 10 ** (np.log10(majorstep) % 1)) for now
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 plt.style.use(mplhep.style.ROOT)
 
@@ -341,12 +346,12 @@ def plot_results(fit_results, inclusive_results):
         r"$\mu_{t\bar{t}H}^{\mathrm{inc}}$",
     ]
     nice_labels_stxs = [
-        r"$\mu_{t\bar{t}H}^{p_{T}^{H}[0-60)}$",
-        r"$\mu_{t\bar{t}H}^{p_{T}^{H}[60-120)}$",
-        r"$\mu_{t\bar{t}H}^{p_{T}^{H}[120-200)}$",
-        r"$\mu_{t\bar{t}H}^{p_{T}^{H}[200-300)}$",
-        r"$\mu_{t\bar{t}H}^{p_{T}^{H}[300-450)}$",
-        r"$\mu_{t\bar{t}H}^{p_{T}^{H}[450-\inf)}$",
+        r"$\mu_{t\bar{t}H}^{\hat{p}_{T}^{H}\in[0-60)}$",
+        r"$\mu_{t\bar{t}H}^{\hat{p}_{T}^{H}\in[60-120)}$",
+        r"$\mu_{t\bar{t}H}^{\hat{p}_{T}^{H}\in[120-200)}$",
+        r"$\mu_{t\bar{t}H}^{\hat{p}_{T}^{H}\in[200-300)}$",
+        r"$\mu_{t\bar{t}H}^{\hat{p}_{T}^{H}\in[300-450)}$",
+        r"$\mu_{t\bar{t}H}^{\hat{p}_{T}^{H}\in[450-\infty)}$",
     ]
 
     axs[0].set_yticks(np.append(y_pos, inclusive_y_pos))
@@ -367,13 +372,24 @@ def plot_results(fit_results, inclusive_results):
     axs[2].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
 
     atlas_label = mplhep.atlas.text("Internal", ax=axs[0], loc=0, fontsize=20)
-    ax.text(-0.9, n_pois + 0.8, r"$\sqrt{s}$ = 13 TeV, 140 fb$^{-1}$", fontsize=14)
+    ax.text(-19, n_pois + 1.4, r"$\sqrt{s}$ = 13 TeV, $\mathcal{L}$ = 140 fb$^{-1}$", fontsize=18)
 
     fig.tight_layout()
     plt.subplots_adjust(wspace=0.10, top=0.9)
-    plt.savefig(filename_pdf)
-    plt.savefig(filename_png)
 
+    actions = {
+    "pdf": [(filename_pdf, lambda: plt.savefig(filename_pdf))],
+    "png": [(filename_png, lambda: plt.savefig(filename_png))],
+    "both": [(filename_pdf, lambda: plt.savefig(filename_pdf)), (filename_png, lambda: plt.savefig(filename_png))]
+    }
+
+    if format not in actions:
+        print("Invalid format! Please choose pdf, png or both.")
+        exit(1)
+
+    for filename, action in actions[format]:
+        action()
+        print(f"Plot saved as {filename}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -385,7 +401,18 @@ if __name__ == "__main__":
         required=True,
         help="Path to the YAML configuration file",
     )
+
+    parser.add_argument(
+        "-f",
+        "--format",
+        required=False,
+        default="pdf",
+        help="Specify the output format for the plot"
+        "(pdf/png/both). Default is pdf",
+    )
+
     args = parser.parse_args()
+    format = args.format
 
     filename_pdf = f"POI_{current_date}.pdf"
     filename_png = f"POI_{current_date}.png"
