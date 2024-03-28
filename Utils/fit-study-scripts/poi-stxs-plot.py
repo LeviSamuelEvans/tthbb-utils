@@ -48,8 +48,8 @@ def read_results(config, fit_key):
         labels.append(key.strip())
         bestfit.append(float(value.split(" +/- ")[0]))
         err_range = value.split(" +/- ")[1].strip("()")
-        err_down.append(float(err_range.split(",")[0]))
-        err_up.append(float(err_range.split(",")[1]))
+        err_up.append(float(err_range.split(",")[0]))
+        err_down.append(float(err_range.split(",")[1]))
         sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
         if sym_err > 2:
             sym_err = 0
@@ -78,8 +78,8 @@ def read_inclusive_results(config, fit_key):
         labels.append(key.strip())
         bestfit.append(float(value.split(" +/- ")[0]))
         err_range = value.split(" +/- ")[1].strip("()")
-        err_down.append(float(err_range.split(",")[0]))
-        err_up.append(float(err_range.split(",")[1]))
+        err_up.append(float(err_range.split(",")[0]))
+        err_down.append(float(err_range.split(",")[1]))
         sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
         if sym_err > 2:
             sym_err = 0
