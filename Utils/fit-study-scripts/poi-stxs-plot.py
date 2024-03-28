@@ -130,13 +130,12 @@ def plot_results(fit_results, inclusive_results):
             np.asarray(results_full["bestfit"]) + np.asarray(results_full["up"])
         )
 
-        # statistical error bars
+        # STXS statistical error bars
         ax.errorbar(
             results_full["bestfit"],
             y_pos,
             xerr=[results_stat["down"], results_stat["up"]],
             fmt="o",
-            # linewidth=line_width_stat,
             color=colors[0],
             label="Stat. only",
             capsize=capsize,
@@ -145,7 +144,7 @@ def plot_results(fit_results, inclusive_results):
             zorder=2,
         )
 
-        # systematic error bars
+        # STXS systematic error bars
         syst_err_up = np.sqrt(
             np.array(results_full["up"]) ** 2 - np.array(results_stat["up"]) ** 2
         )
@@ -160,18 +159,17 @@ def plot_results(fit_results, inclusive_results):
             color=colors[1],
             label="Syst. only",
             capsize=capsize,
-            elinewidth=line_width_syst,  # error bar line width
+            elinewidth=line_width_syst,
             markeredgewidth=markeredgewidth,
             zorder=3,
         )
 
-        # total error bars
+        # STXS total error bars
         ax.errorbar(
             results_full["bestfit"],
             y_pos,
             xerr=[results_full["down"], results_full["up"]],
             fmt="o",
-            # linewidth=line_width_full,
             color=colors[2],
             label="Total Unc.",
             capsize=8,
@@ -194,7 +192,7 @@ def plot_results(fit_results, inclusive_results):
         # dashed line to separate STXS and inclusive results
         ax.axhline(y=-0.5, linestyle="--", color="black", linewidth=1.5)
 
-        # inclusive statistical error bars
+        # Inclusive statistical error bars
         ax.errorbar(
             inclusive_full["bestfit"],
             inclusive_y_pos,
@@ -207,7 +205,7 @@ def plot_results(fit_results, inclusive_results):
             zorder=2,
         )
 
-        # inclusive systematic error bars
+        # Inclusive systematic error bars
         ax.errorbar(
             inclusive_full["bestfit"],
             inclusive_y_pos,
@@ -220,7 +218,7 @@ def plot_results(fit_results, inclusive_results):
             zorder=3,
         )
 
-        # Plot inclusive total error bars
+        # Inclusive total error bars
         ax.errorbar(
             inclusive_full["bestfit"],
             inclusive_y_pos,
@@ -238,7 +236,7 @@ def plot_results(fit_results, inclusive_results):
         ax.text(x_max + 2.6, n_pois - 0.10, "(Stat.", fontsize=15)
         ax.text(x_max + 3.6, n_pois - 0.10, "Syst.)", fontsize=15)
 
-        # STXS
+        # STXS Values
         for k, label in enumerate(results_full["labels"]):
             ax.text(
                 x_max + 0.35,
@@ -272,7 +270,7 @@ def plot_results(fit_results, inclusive_results):
                 verticalalignment="center",
                 multialignment="center",
             )
-        # INCLUSIVE
+        # INCLUSIVE Values
         for k, label in enumerate(inclusive_full["labels"]):
             ax.text(
                 x_max + 0.35,
@@ -357,7 +355,7 @@ def plot_results(fit_results, inclusive_results):
     axs[0].set_yticks(np.append(y_pos, inclusive_y_pos))
     nice_labels_stxs.extend(
         nice_labels_inclusive
-    )  # some ugly hack to append the inclusive label to the STXS labels for now :/
+    )  # an ugly hack to append the inclusive label to the STXS labels for now :/
     axs[0].set_yticklabels(nice_labels_stxs, fontsize=22)
 
     axs[2].set_xlabel(
@@ -371,8 +369,8 @@ def plot_results(fit_results, inclusive_results):
     axs[1].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
     axs[2].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
 
-    atlas_label = mplhep.atlas.text("Internal", ax=axs[0], loc=0, fontsize=20)
-    ax.text(-19, n_pois + 1.4, r"$\sqrt{s}$ = 13 TeV, $\mathcal{L}$ = 140 fb$^{-1}$", fontsize=18)
+    atlas_label = mplhep.atlas.text("Internal", ax=axs[0], loc=0, fontsize=20) # add ATLAS logo
+    ax.text(-19, n_pois + 1.4, r"$\sqrt{s}$ = 13 TeV, $\mathcal{L}$ = 140 fb$^{-1}$", fontsize=18) # add lumi and cme
 
     fig.tight_layout()
     plt.subplots_adjust(wspace=0.10, top=0.9)
