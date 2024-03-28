@@ -215,8 +215,6 @@ def plot_results(fit_results, inclusive_results):
             zorder=3,
         )
 
-        print(inclusive_full["down"])
-        print(inclusive_full["up"])
         # Plot inclusive total error bars
         ax.errorbar(
             inclusive_full["bestfit"],
