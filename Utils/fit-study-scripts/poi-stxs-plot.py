@@ -6,6 +6,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 import numpy as np
+import yaml
 
 """
 ===================
@@ -13,46 +14,42 @@ import numpy as np
 ===================
 
 Description:
-    - Script to plot the POI values for each STXS bin.
+    - Script to plot the POI values for the ttH(bb) Legacy fits
 
 Usage:
-    - ./poi-stxs-plot.py
+    - ./poi-stxs-plot.py -c config.yaml
 
 Notes:
     - point to the correct fit results file in the start of the script
     - requires stat-only fits
     - run all fits with MINOS errors on POIs
+    - source /cvmfs/sft.cern.ch/lcg/views/dev3/latest/x86_64-centos7-gcc11-opt/setup.sh if using lxplus
 
 """
 
-# YOU WILL NEED TO RUN THIS "source /cvmfs/sft.cern.ch/lcg/views/dev3/latest/x86_64-centos7-gcc11-opt/setup.sh" BEFORE RUNNING THIS SCRIPT
 plt.style.use(mplhep.style.ROOT)
 
 current_date = datetime.datetime.now().strftime("%d_%m_%y")
 
 
-def read_results(fit_file, fit_type, channel, data=False, statonly=False):
-    with open(fit_file) as f:
-        lines = f.readlines()
-
+def read_results(config, fit_key):
     labels = []
     bestfit = []
     error = []
     err_up = []
     err_down = []
-    for line in lines:
-        try:
-            split = line.split()
-            labels.append(split[0])
-            bestfit.append(float(split[2]))
-            err_up.append(float(split[4].split(",")[0].strip("()")))
-            err_down.append(float(split[4].split(",")[1].strip("()")))
-            sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
-            if sym_err > 2:
-                sym_err = 0
-            error.append(sym_err)
-        except:
-            continue
+    for item in config[fit_key]:
+        key, value = item.split(" = ")
+        labels.append(key.strip())
+        bestfit.append(float(value.split(" +/- ")[0]))
+        err_range = value.split(" +/- ")[1].strip("()")
+        err_down.append(float(err_range.split(",")[0]))
+        err_up.append(float(err_range.split(",")[1]))
+        sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
+        if sym_err > 2:
+            sym_err = 0
+        error.append(sym_err)
+    fit_type, channel, _ = fit_key.split("_")
     results = {
         "labels": labels,
         "bestfit": bestfit,
@@ -65,29 +62,24 @@ def read_results(fit_file, fit_type, channel, data=False, statonly=False):
     return results
 
 
-def read_inclusive_results(inclusive_file, fit_type, channel):
-    with open(inclusive_file) as f:
-        lines = f.readlines()
-
+def read_inclusive_results(config, fit_key):
     labels = []
     bestfit = []
     error = []
     err_up = []
     err_down = []
-
-    for line in lines:
-        try:
-            split = line.split()
-            labels.append(split[0])
-            bestfit.append(float(split[2]))
-            err_up.append(float(split[4].split(",")[0].strip("()")))
-            err_down.append(float(split[4].split(",")[1].strip("()")))
-            sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
-            if sym_err > 2:
-                sym_err = 0
-            error.append(sym_err)
-        except:
-            continue
+    for item in config[fit_key]:
+        key, value = item.split(" = ")
+        labels.append(key.strip())
+        bestfit.append(float(value.split(" +/- ")[0]))
+        err_range = value.split(" +/- ")[1].strip("()")
+        err_down.append(float(err_range.split(",")[0]))
+        err_up.append(float(err_range.split(",")[1]))
+        sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
+        if sym_err > 2:
+            sym_err = 0
+        error.append(sym_err)
+    fit_type, channel, _ = fit_key.split("_")
     results = {
         "labels": labels,
         "bestfit": bestfit,
@@ -95,7 +87,7 @@ def read_inclusive_results(inclusive_file, fit_type, channel):
         "up": err_up,
         "down": err_down,
         "fit_type": fit_type,
-        "channel": channel,
+        "channel": "Inclusive",
     }
     return results
 
@@ -384,90 +376,38 @@ def plot_results(fit_results, inclusive_results):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Plot POI values for STXS bins")
-    parser.add_argument(
-        "--comb-full",
-        required=True,
-        help="Path to the combined full fit results file",
+    parser = argparse.ArgumentParser(
+        description="Plot POI values for ttH(bb) Legacy Fits."
     )
     parser.add_argument(
-        "--comb-stat",
+        "-c",
+        "--config",
         required=True,
-        help="Path to the combined stat-only fit results file",
-    )
-    parser.add_argument(
-        "--sl-full",
-        required=True,
-        help="Path to the single-lepton full fit results file",
-    )
-    parser.add_argument(
-        "--sl-stat",
-        required=True,
-        help="Path to the single-lepton stat-only fit results file",
-    )
-    parser.add_argument(
-        "--dl-full",
-        required=True,
-        help="Path to the dilepton full fit results file",
-    )
-    parser.add_argument(
-        "--dl-stat",
-        required=True,
-        help="Path to the dilepton stat-only fit results file",
-    )
-    parser.add_argument(
-        "--inc-full", required=True, help="Path to the inclusive full fit results file"
-    )
-    parser.add_argument(
-        "--inc-stat",
-        required=True,
-        help="Path to the inclusive stat-only fit results file",
-    )
-    parser.add_argument(
-        "--inc-1l-full",
-        required=True,
-        help="Path to the inclusive single-lepton full fit results file",
-    )
-    parser.add_argument(
-        "--inc-1l-stat",
-        required=True,
-        help="Path to the inclusive single-lepton stat-only fit results file",
-    )
-    parser.add_argument(
-        "--inc-2l-full",
-        required=True,
-        help="Path to the inclusive dilepton full fit results file",
-    )
-    parser.add_argument(
-        "--inc-2l-stat",
-        required=True,
-        help="Path to the inclusive dilepton stat-only fit results file",
+        help="Path to the YAML configuration file",
     )
     args = parser.parse_args()
 
     filename_pdf = f"POI_STXS_MINOS_{current_date}_trial.pdf"
-    # filename_png = f"POI_STXS_MINOS_{current_date}_trial.png"
+
+    with open(args.config, "r") as f:
+        config = yaml.safe_load(f)
 
     fit_results = [
-        read_results(args.comb_full, "Combined", "Full"),
-        read_results(args.comb_stat, "Combined", "Stat-only"),
-        read_results(args.sl_full, "Single-lepton", "Full"),
-        read_results(args.sl_stat, "Single-lepton", "Stat-only"),
-        read_results(args.dl_full, "Dilepton", "Full"),
-        read_results(args.dl_stat, "Dilepton", "Stat-only"),
+        read_results(config, "Combined_STXS_full"),
+        read_results(config, "Combined_STXS_stat"),
+        read_results(config, "1l_STXS_full"),
+        read_results(config, "1l_STXS_stat"),
+        read_results(config, "2l_STXS_full"),
+        read_results(config, "2l_STXS_stat"),
     ]
 
     inclusive_results = [
-        read_inclusive_results(args.inc_full, "Combined", "Full"),
-        read_inclusive_results(args.inc_stat, "Combined", "Stat-only"),
-        read_inclusive_results(args.inc_1l_full, "Single-lepton", "Full"),
-        read_inclusive_results(args.inc_1l_stat, "Single-lepton", "Stat-only"),
-        read_inclusive_results(args.inc_2l_full, "Dilepton", "Full"),
-        read_inclusive_results(args.inc_2l_stat, "Dilepton", "Stat-only"),
+        read_inclusive_results(config, "Combined_inclusive_full"),
+        read_inclusive_results(config, "Combined_inclusive_stat"),
+        read_inclusive_results(config, "1l_inclusive_full"),
+        read_inclusive_results(config, "1l_inclusive_stat"),
+        read_inclusive_results(config, "2l_inclusive_full"),
+        read_inclusive_results(config, "2l_inclusive_stat"),
     ]
 
     plot_results(fit_results, inclusive_results)
-
-# LOL update to just one file for sure (YAML with these defined in it)
-
-# python3 trial.py --comb-full /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/bb_full.txt --comb-stat /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/bb_stat.txt --sl-full /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/bb_full_1l.txt --sl-stat /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/bb_stat_1l.txt --dl-full /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/bb_full_2l.txt --dl-stat /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/bb_stat_2l.txt --inc-full /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/inclusive.txt --inc-stat /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/inclusive_stat.txt --inc-1l-full /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/inclusive_1l_full.txt --inc-1l-stat /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/inclusive_1l_stat.txt --inc-2l-full /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/inclusive_2l_full.txt --inc-2l-stat /Users/levievans/Desktop/PhD/3rd-YEAR/Fits/Fit_Results_04_03_24/POI/inclusive_2l_stat.txt
