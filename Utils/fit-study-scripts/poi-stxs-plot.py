@@ -311,27 +311,27 @@ def plot_results(fit_results, inclusive_results):
         ax.set_ylim([-1.8, n_pois + 1.2])
         if results_full["fit_type"] == "Combined":
             ax.text(
-                4.9,
+                4.75,
                 6.5,
                 f"{results_full['fit_type']}",
                 fontsize=16,
                 weight="bold",
                 style="italic",
             )
-        if results_full["fit_type"] == "Single-lepton":
+        if results_full["fit_type"] == "1l":
             ax.text(
-                4.5,
+                4.35,
                 6.5,
-                f"{results_full['fit_type']}",
+                "Single-lepton",
                 fontsize=16,
                 weight="bold",
                 style="italic",
             )
-        if results_full["fit_type"] == "Dilepton":
+        if results_full["fit_type"] == "2l":
             ax.text(
-                6.25,
+                5.95,
                 6.5,
-                f"{results_full['fit_type']}",
+                "Dilepton",
                 fontsize=16,
                 weight="bold",
                 style="italic",
