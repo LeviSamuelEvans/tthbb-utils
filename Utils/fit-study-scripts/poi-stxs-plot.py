@@ -373,7 +373,7 @@ def plot_results(fit_results, inclusive_results):
         "Internal", ax=axs[0], loc=0, fontsize=20
     )  # add ATLAS logo
     ax.text(
-        -19,
+        -19.08,
         n_pois + 1.4,
         r"$\sqrt{s}$ = 13 TeV, $\mathcal{L}$ = 140 fb$^{-1}$",
         fontsize=18,
