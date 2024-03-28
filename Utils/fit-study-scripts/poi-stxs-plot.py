@@ -21,7 +21,6 @@ Usage:
     - ./poi-stxs-plot.py -c config.yaml
 
 Notes:
-    - point to the correct fit results file in the start of the script
     - requires stat-only fits
     - run all fits with MINOS errors on POIs
     - source /cvmfs/sft.cern.ch/lcg/views/dev3/latest/x86_64-centos7-gcc11-opt/setup.sh if using lxplus
@@ -320,7 +319,7 @@ def plot_results(fit_results, inclusive_results):
             )
         if results_full["fit_type"] == "1l":
             ax.text(
-                4.35,
+                4.40,
                 6.5,
                 "Single-lepton",
                 fontsize=16,
@@ -329,7 +328,7 @@ def plot_results(fit_results, inclusive_results):
             )
         if results_full["fit_type"] == "2l":
             ax.text(
-                5.95,
+                6.2,
                 6.5,
                 "Dilepton",
                 fontsize=16,
