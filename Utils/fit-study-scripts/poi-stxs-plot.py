@@ -367,10 +367,12 @@ def plot_results(fit_results, inclusive_results):
     axs[2].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
 
     atlas_label = mplhep.atlas.text("Internal", ax=axs[0], loc=0, fontsize=20)
+    ax.text(-0.9, n_pois + 0.8, r"$\sqrt{s}$ = 13 TeV, 140 fb$^{-1}$", fontsize=14)
 
     fig.tight_layout()
     plt.subplots_adjust(wspace=0.10, top=0.9)
     plt.savefig(filename_pdf)
+    plt.savefig(filename_png)
 
 
 if __name__ == "__main__":
@@ -385,7 +387,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    filename_pdf = f"POI_STXS_MINOS_{current_date}_trial.pdf"
+    filename_pdf = f"POI_{current_date}.pdf"
+    filename_png = f"POI_{current_date}.png"
 
     with open(args.config, "r") as f:
         config = yaml.safe_load(f)
