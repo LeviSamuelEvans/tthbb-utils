@@ -369,16 +369,26 @@ def plot_results(fit_results, inclusive_results):
     axs[1].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
     axs[2].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
 
-    atlas_label = mplhep.atlas.text("Internal", ax=axs[0], loc=0, fontsize=20) # add ATLAS logo
-    ax.text(-19, n_pois + 1.4, r"$\sqrt{s}$ = 13 TeV, $\mathcal{L}$ = 140 fb$^{-1}$", fontsize=18) # add lumi and cme
+    mplhep.atlas.text(
+        "Internal", ax=axs[0], loc=0, fontsize=20
+    )  # add ATLAS logo
+    ax.text(
+        -19,
+        n_pois + 1.4,
+        r"$\sqrt{s}$ = 13 TeV, $\mathcal{L}$ = 140 fb$^{-1}$",
+        fontsize=18,
+    )  # add lumi and cme
 
     fig.tight_layout()
     plt.subplots_adjust(wspace=0.10, top=0.9)
 
     actions = {
-    "pdf": [(filename_pdf, lambda: plt.savefig(filename_pdf))],
-    "png": [(filename_png, lambda: plt.savefig(filename_png))],
-    "both": [(filename_pdf, lambda: plt.savefig(filename_pdf)), (filename_png, lambda: plt.savefig(filename_png))]
+        "pdf": [(filename_pdf, lambda: plt.savefig(filename_pdf))],
+        "png": [(filename_png, lambda: plt.savefig(filename_png))],
+        "both": [
+            (filename_pdf, lambda: plt.savefig(filename_pdf)),
+            (filename_png, lambda: plt.savefig(filename_png)),
+        ],
     }
 
     if format not in actions:
@@ -388,6 +398,7 @@ def plot_results(fit_results, inclusive_results):
     for filename, action in actions[format]:
         action()
         print(f"Plot saved as {filename}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -405,8 +416,7 @@ if __name__ == "__main__":
         "--format",
         required=False,
         default="pdf",
-        help="Specify the output format for the plot"
-        "(pdf/png/both). Default is pdf",
+        help="Specify the output format for the plot" "(pdf/png/both). Default is pdf",
     )
 
     args = parser.parse_args()
