@@ -98,7 +98,7 @@ def read_inclusive_results(config, fit_key):
 
 def plot_results(fit_results, inclusive_results):
     n_pois = len(fit_results[0]["labels"])
-    fig, axs = plt.subplots(1, 3, figsize=(20, 7), sharey=True)
+    fig, axs = plt.subplots(1, 3, figsize=(21, 7), sharey=True)
 
     spacing_factor = 1.05
     y_pos = np.arange(0, n_pois * spacing_factor, spacing_factor)[::-1]
@@ -369,7 +369,7 @@ def plot_results(fit_results, inclusive_results):
     axs[2].legend(frameon=False, fontsize=14, loc="upper left", ncol=2)
 
     mplhep.atlas.text(
-        "Internal", ax=axs[0], loc=0, fontsize=20
+        "Internal", ax=axs[0], loc=0, fontsize=18
     )  # add ATLAS logo
     ax.text(
         -19.08,
