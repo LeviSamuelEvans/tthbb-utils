@@ -1143,7 +1143,7 @@ class TRExSubmit:
             else []
         )
         opts += (
-            ["Suffix=_${suffix}"] if self.split_validation else []
+            ["Job=../results/${shortconfig}/${suffix}"] if self.split_validation else []
         )
         opts += (
             ["Ranking=${systs}"] if self.split_systs and not self.split_regions else []
@@ -1167,6 +1167,10 @@ class TRExSubmit:
             if self.split_validation or (self.split_systs and self.split_regions):
                 f.write(
                     "suffix=${3:?Suffix should be supplied as the third parameter but was not!}\n"
+                )
+            if self.split_validation:
+                f.write(
+                    "shortconfig=${4:?Short Config should be supplied as the fourth parameter but was not!}\n"
                 )
             if self.split_systs and self.split_regions:
                 f.write(
@@ -1194,8 +1198,11 @@ class TRExSubmit:
                 f.write(f"echo \" - {option}\"\n")
             f.write("echo -e \"\"\n")
 
-            # We should now have `trex-fitter` in our PATH, so can simply call it directly
             f.write("\n")
+            if self.split_validation:
+                # Need to generate the results folders here
+                f.write("mkdir -p ../results/${shortconfig}/${suffix}\n")
+            # We should now have `trex-fitter` in our PATH, so can simply call it directly
             f.write(f'trex-fitter {actions} ${{config}} "{option_string}"\n')
             f.write("\n")
             f.write("echo \"\"\n")
@@ -1340,7 +1347,7 @@ class TRExSubmit:
         },
         "validation": {
             "job_file": ["Config", "ShortConfig", "Suffix", "Regions"],
-            "script_args": ["Config", "Regions", "Suffix"],
+            "script_args": ["Config", "Regions", "Suffix", "ShortConfig"],
             "log_args": ["ShortConfig", "Suffix"],
         },
         "syst": {
