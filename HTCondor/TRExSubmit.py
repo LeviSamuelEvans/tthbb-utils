@@ -784,6 +784,7 @@ class TRExSubmit:
             if (
                 not f.startswith('REPLACEMENTFILE_')
                 and not f.startswith('INCLUDEFILE_')
+                and not f == ".asetup.save"
             )
         ]
 
