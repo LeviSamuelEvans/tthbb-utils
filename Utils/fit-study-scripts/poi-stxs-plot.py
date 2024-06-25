@@ -21,7 +21,7 @@ Description:
     - Script to plot the POI values for the ttH(bb) Legacy fits
 
 Usage:
-    - ./make_poi_plots.py -c xsec.yaml
+    - ./poi-stxs-plot.py -c xsec.yaml
 
 Notes:
     - please refer to the xsec.yaml for the format of the input file
