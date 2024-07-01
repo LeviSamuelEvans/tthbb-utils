@@ -94,6 +94,7 @@ class Plotter:
         # https://docs.google.com/spreadsheets/d/1t4H9HfBx-pFtsTzJvgrx5dCZKAkklu6zGdtP88pjnf4/edit?gid=0#gid=0
         # PDF + dy + migrations for STXS, in quadrature
         # PDF + dy for inclusive, in quadrature
+        # \lambda_y  --> (+5.8%,-9.2%)
         self.theory_uncertainties = [
             0.1349,
             0.1110,
@@ -101,8 +102,10 @@ class Plotter:
             0.1397,
             0.1582,
             0.1757,
-            0.0988,
+            0.0988, # for symmetric, refer to below for the asymmetric values
         ]
+        self.INC_THEORY_UP = 0.0680
+        self.INC_THEORY_DOWN = 0.0988
 
     def plot(self):
         raise NotImplementedError
@@ -168,7 +171,7 @@ class CombinedPlotter(Plotter):
         ax.text(
             -23.8,
             7.35,
-            r"$\sqrt{s}\, =\, 13\,TeV,\, 140\, fb^{-1},\,m_{H}=125\, \text{GeV}$",
+            r"$\sqrt{s}\, =\, 13\,TeV,\, 140\, fb^{-1},\,m_{H}=125.09\, \text{GeV}$",
             fontsize=20,
             style="normal",
         )
@@ -223,11 +226,18 @@ class CombinedPlotter(Plotter):
 
         # shaded band for the theory uncerts
         for i, y in enumerate(np.append(y_pos, inclusive_y_pos)):
+            if i == len(y_pos):  # for inclusive
+                theory_uncertainty_up = self.INC_THEORY_UP
+                theory_uncertainty_down = self.INC_THEORY_DOWN
+            else:
+                theory_uncertainty_up = self.theory_uncertainties[i]
+                theory_uncertainty_down = self.theory_uncertainties[i]
+
             label = "SM + Theory" if i == 0 else None
             ax.add_patch(
                 plt.Rectangle(
-                    (1 - self.theory_uncertainties[i], y - band_height / 2),
-                    2 * self.theory_uncertainties[i],
+                    (1 - theory_uncertainty_down, y - band_height / 2),
+                    theory_uncertainty_up + theory_uncertainty_down,
                     band_height,
                     fill=False,
                     alpha=0.15,
@@ -446,6 +456,7 @@ class CombinedPlotter(Plotter):
             borderpad=0.4,
             labelspacing=0.1,
             columnspacing=1.5,
+            bbox_to_anchor=(0.025, 0.99),
         )
 
 
@@ -523,11 +534,18 @@ class SeparatePlotter(Plotter):
 
         band_height = 0.6
         for i, y in enumerate(np.append(y_pos, inclusive_y_pos)):
+            if i == len(y_pos):  # for inclusive
+                theory_uncertainty_up = self.INC_THEORY_UP
+                theory_uncertainty_down = self.INC_THEORY_DOWN
+            else:
+                theory_uncertainty_up = self.theory_uncertainties[i]
+                theory_uncertainty_down = self.theory_uncertainties[i]
+
             label = "SM + Theory" if i == 0 else None
             ax.add_patch(
                 plt.Rectangle(
-                    (1 - self.theory_uncertainties[i], y - band_height / 2),
-                    2 * self.theory_uncertainties[i],
+                    (1 - theory_uncertainty_down, y - band_height / 2),
+                    theory_uncertainty_up + theory_uncertainty_down,
                     band_height,
                     fill=False,
                     alpha=0.15,
@@ -748,8 +766,8 @@ class SeparatePlotter(Plotter):
         ax.text(
             -0.38,
             5.9,
-            r"$\sqrt{s}\, =\, 13\,TeV,\, 140\, fb^{-1},\,m_{H}=125\, \text{GeV}$",
-            fontsize=18,
+            r"$\sqrt{s}\, =\, 13\,TeV,\, 140\, fb^{-1},\,m_{H}=125.09\, \text{GeV}$",
+            fontsize=17,
             style="normal",
         )
 
