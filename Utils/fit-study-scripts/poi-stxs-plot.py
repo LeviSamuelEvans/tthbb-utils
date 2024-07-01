@@ -134,19 +134,19 @@ class CombinedPlotter(Plotter):
     def plot(self):
         "Set up the plot and save it in the requested format."
         fig, axs = plt.subplots(1, 3, figsize=(32, 8), sharey=True)
-        labels = ["Combined", "Single-lepton", "Dilepton"]
+        labels = ["Combined", "Single lepton", "Dilepton"]
         for i in range(3):
             if i == 0:
                 axs[i].text(
-                    -0.52, 5.9, labels[0], fontsize=21, weight="bold", style="italic"
+                    -0.52, 5.9, labels[0], fontsize=21, #weight="bold", style="italic"
                 )
             if i == 1:
                 axs[i].text(
-                    -0.39, 5.9, labels[1], fontsize=21, weight="bold", style="italic"
+                    -0.39, 5.9, labels[1], fontsize=21, #weight="bold", style="italic"
                 )
             else:
                 axs[2].text(
-                    -2.45, 5.9, labels[2], fontsize=21, weight="bold", style="italic"
+                    -2.45, 5.9, labels[2], fontsize=21, #weight="bold", style="italic"
                 )
             self.plot_single_result(
                 axs[i],
@@ -202,12 +202,15 @@ class CombinedPlotter(Plotter):
         spacing_factor = 1.05
         y_pos = np.arange(0, n_pois * spacing_factor, spacing_factor)[::-1]
         inclusive_y_pos = -1.1
-        line_width_full = 2.0
-        line_width_stat = 15.0
-        line_width_syst = 8.0
+
+        # line widths
+        line_width_full = 4.0
+        line_width_stat = 20.0
+        line_width_syst = 12.0
+
         capsize = 1.8
         elinewidth = 2.5
-        markeredgewidth = 3.0
+        markeredgewidth = 3.5
 
         x_min = min(
             np.asarray(results_full["bestfit"]) - np.asarray(results_full["down"])
@@ -275,8 +278,8 @@ class CombinedPlotter(Plotter):
             fmt="o",
             color=self.colors[2],
             label="Total Unc.",
-            capsize=9,
-            capthick=1.3,
+            capsize=8,
+            capthick=2.0,
             elinewidth=line_width_full,
             markeredgewidth=markeredgewidth,
             zorder=3,
@@ -292,7 +295,7 @@ class CombinedPlotter(Plotter):
         )
 
         # add horizontal line at the bottom to separate the inclusive results from the STXS ones
-        ax.axhline(y=-0.5, linestyle="--", color="black", linewidth=1.5)
+        ax.axhline(y=-0.5, linestyle="--", color="black", linewidth=1.5, zorder=0)
 
         # inclusive stat. only bar
         ax.errorbar(
@@ -324,8 +327,8 @@ class CombinedPlotter(Plotter):
             xerr=[inclusive_full["down"], inclusive_full["up"]],
             fmt="o",
             color=self.colors[2],
-            capsize=7,
-            capthick=0.8,
+            capsize=8,
+            capthick=2.0,
             elinewidth=line_width_full,
             markeredgewidth=markeredgewidth,
             zorder=3,
@@ -406,7 +409,7 @@ class CombinedPlotter(Plotter):
                 verticalalignment="center",
                 multialignment="left",
             )
-        ax.plot([1, 1], [ax.get_ylim()[0], n_pois - 0.2], "--", color="grey", alpha=0.5)
+        ax.plot([1, 1], [ax.get_ylim()[0], n_pois - 0.2], "--", color="grey", alpha=0.6, zorder=0)
         ax.set_xlim([x_min - 0.5, x_max + 5.0])
         ax.set_ylim([-1.8, n_pois + 1.2])
         ax.tick_params(axis="both", which="major", pad=14, labelsize=12)
@@ -415,12 +418,12 @@ class CombinedPlotter(Plotter):
         ax.tick_params(axis="x", labelsize=24)
         nice_labels_inclusive = ["Inclusive"]
         nice_labels_stxs = [
-            r"${\hat{p}_{T}^{H}\in[0-60)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[60-120)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[120-200)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[200-300)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[300-450)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[450-\infty)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[0,60)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[60,120)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[120,200)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[200,300)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[300,450)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[450,\infty)}$ GeV",
         ]
         ax.set_yticks(np.append(y_pos, inclusive_y_pos))
         nice_labels_stxs.extend(nice_labels_inclusive)
@@ -429,7 +432,11 @@ class CombinedPlotter(Plotter):
         ax.xaxis.set_minor_locator(AutoMinorLocator(0))
         ax.yaxis.set_minor_locator(AutoMinorLocator(0))
 
+        handles, labels = ax.get_legend_handles_labels()
+
         ax.legend(
+            handles[::-1],
+            labels[::-1],
             frameon=False,
             fontsize=19,
             loc="upper left",
@@ -493,11 +500,18 @@ class SeparatePlotter(Plotter):
         spacing_factor = 1.05
         y_pos = np.arange(0, n_pois * spacing_factor, spacing_factor)[::-1]
         inclusive_y_pos = -1.1
-        line_width_full = 2.0
-        line_width_stat = 15.0
-        line_width_syst = 8.0
+        # line_width_full = 2.0
+        # line_width_stat = 15.0
+        # line_width_syst = 8.0
+
+        line_width_full = 3.0
+        line_width_stat = 17.0
+        line_width_syst = 10.0
+
         capsize = 1.8
         elinewidth = 2.5
+
+        # NOTE: if this is set, it will overide capthick -> https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.errorbar.html
         markeredgewidth = 3.0
 
         x_min = min(
@@ -559,8 +573,8 @@ class SeparatePlotter(Plotter):
             fmt="o",
             color=self.colors[2],
             label="Total Unc.",
-            capsize=9,
-            capthick=1.3,
+            capsize=8,
+            capthick=2.0,
             elinewidth=line_width_full,
             markeredgewidth=markeredgewidth,
             zorder=3,
@@ -573,7 +587,7 @@ class SeparatePlotter(Plotter):
             np.array(inclusive_full["down"]) ** 2
             - np.array(inclusive_stat["down"]) ** 2
         )
-        ax.axhline(y=-0.5, linestyle="--", color="black", linewidth=1.5)
+        ax.axhline(y=-0.5, linestyle="--", color="black", linewidth=1.5, zorder=0)
 
         ax.errorbar(
             inclusive_full["bestfit"],
@@ -602,8 +616,8 @@ class SeparatePlotter(Plotter):
             xerr=[inclusive_full["down"], inclusive_full["up"]],
             fmt="o",
             color=self.colors[2],
-            capsize=7,
-            capthick=0.8,
+            capsize=8,
+            #capthick=0.2,
             elinewidth=line_width_full,
             markeredgewidth=markeredgewidth,
             zorder=3,
@@ -682,7 +696,7 @@ class SeparatePlotter(Plotter):
                 verticalalignment="center",
                 multialignment="left",
             )
-        ax.plot([1, 1], [ax.get_ylim()[0], n_pois - 0.2], "--", color="grey", alpha=0.5)
+        ax.plot([1, 1], [ax.get_ylim()[0], n_pois - 0.2], "--", color="grey", alpha=0.6, zorder=0)
         ax.set_xlim([x_min - 0.5, x_max + 5.0])
         ax.set_ylim([-1.8, n_pois + 1.2])
         ax.tick_params(axis="both", which="major", pad=14, labelsize=12)
@@ -691,12 +705,12 @@ class SeparatePlotter(Plotter):
         ax.tick_params(axis="x", labelsize=19)
         nice_labels_inclusive = ["Inclusive"]
         nice_labels_stxs = [
-            r"${\hat{p}_{T}^{H}\in[0-60)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[60-120)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[120-200)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[200-300)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[300-450)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[450-\infty)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[0,60)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[60,120)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[120,200)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[200,300)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[300,450)}$ GeV",
+            r"${\hat{p}_{T}^{H}\in[450,\infty)}$ GeV",
         ]
 
         ax.set_yticks(np.append(y_pos, inclusive_y_pos))
@@ -704,13 +718,19 @@ class SeparatePlotter(Plotter):
         ax.set_yticklabels(nice_labels_stxs, fontsize=22)
         ax.xaxis.set_minor_locator(AutoMinorLocator(0))
         ax.yaxis.set_minor_locator(AutoMinorLocator(0))
+
         ax.set_xlabel(
             r"$\sigma_{\mathit{t\bar{t}H}}\,$/$\,{\sigma^{\mathrm{SM}}}$",
             fontsize=28,
             labelpad=8,
             loc="right",
         )
+
+        handles, labels = ax.get_legend_handles_labels()
+
         ax.legend(
+            handles[::-1],
+            labels[::-1],
             frameon=False,
             fontsize=15,
             loc="upper right",
@@ -782,7 +802,7 @@ if __name__ == "__main__":
         "-s",
         "--separate",
         action="store_true",
-        help="Generate separate plots for combined, single-lepton, and dilepton cases",
+        help="Generate separate plots for combined, single lepton, and dilepton cases",
     )
     args = parser.parse_args()
 
