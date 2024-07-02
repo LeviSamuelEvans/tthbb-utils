@@ -47,6 +47,7 @@ font = fm.FontProperties(family="sans-serif", weight="bold", size=14)
 
 def read_results(config, fit_key, channel=None):
     """Read the results from the config file and return them as a dictionary."""
+    SCALING_FACTOR = 1.003700781
     labels = []
     bestfit = []
     error = []
@@ -55,10 +56,10 @@ def read_results(config, fit_key, channel=None):
     for item in config[fit_key]:
         key, value = item.split(" = ")
         labels.append(key.strip())
-        bestfit.append(float(value.split(" +/- ")[0]))
+        bestfit.append(float(value.split(" +/- ")[0]) * SCALING_FACTOR)
         err_range = value.split(" +/- ")[1].strip("()")
-        err_up.append(float(err_range.split(",")[0]))
-        err_down.append(float(err_range.split(",")[1]))
+        err_up.append(float(err_range.split(",")[0]) * SCALING_FACTOR)
+        err_down.append(float(err_range.split(",")[1]) * SCALING_FACTOR)
         sym_err = (abs(err_up[-1]) + abs(err_down[-1])) / 2
         if sym_err > 2:
             sym_err = 0
@@ -165,7 +166,7 @@ class CombinedPlotter(Plotter):
             ax.set_aspect("auto")
 
         # ATLAS logo with internal label
-        mplhep.atlas.text(ax=axs[0], loc=0, fontsize=22, text="Internal")
+        mplhep.atlas.text(ax=axs[0], loc=0, fontsize=22,) #text="Internal")
 
         # CME, lumi and higgs mass
         ax.text(
