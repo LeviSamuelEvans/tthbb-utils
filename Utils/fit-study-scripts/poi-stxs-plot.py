@@ -166,7 +166,7 @@ class CombinedPlotter(Plotter):
             ax.set_aspect("auto")
 
         # ATLAS logo with internal label
-        mplhep.atlas.text(ax=axs[0], loc=0, fontsize=22, text="Internal")
+        mplhep.atlas.text(ax=axs[0], loc=0, fontsize=22, text="")
 
         # CME, lumi and higgs mass
         ax.text(
@@ -429,12 +429,12 @@ class CombinedPlotter(Plotter):
         ax.tick_params(axis="x", labelsize=24)
         nice_labels_inclusive = ["Inclusive"]
         nice_labels_stxs = [
-            r"${\hat{p}_{T}^{H}\in[0,60)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[60,120)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[120,200)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[200,300)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[300,450)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[450,\infty)}$ GeV",
+            r"${p_{T}^{H}\in[0,60)}$ GeV",
+            r"${p_{T}^{H}\in[60,120)}$ GeV",
+            r"${p_{T}^{H}\in[120,200)}$ GeV",
+            r"${p_{T}^{H}\in[200,300)}$ GeV",
+            r"${p_{T}^{H}\in[300,450)}$ GeV",
+            r"${p_{T}^{H}\in[450,\infty)}$ GeV",
         ]
         ax.set_yticks(np.append(y_pos, inclusive_y_pos))
         nice_labels_stxs.extend(nice_labels_inclusive)
@@ -732,12 +732,12 @@ class SeparatePlotter(Plotter):
         ax.tick_params(axis="x", labelsize=19)
         nice_labels_inclusive = ["Inclusive"]
         nice_labels_stxs = [
-            r"${\hat{p}_{T}^{H}\in[0,60)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[60,120)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[120,200)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[200,300)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[300,450)}$ GeV",
-            r"${\hat{p}_{T}^{H}\in[450,\infty)}$ GeV",
+            r"${p_{T}^{H}\in[0,60)}$ GeV",
+            r"${p_{T}^{H}\in[60,120)}$ GeV",
+            r"${p_{T}^{H}\in[120,200)}$ GeV",
+            r"${p_{T}^{H}\in[200,300)}$ GeV",
+            r"${p_{T}^{H}\in[300,450)}$ GeV",
+            r"${p_{T}^{H}\in[450,\infty)}$ GeV",
         ]
 
         ax.set_yticks(np.append(y_pos, inclusive_y_pos))
@@ -787,9 +787,9 @@ class SeparatePlotter(Plotter):
             )
 
         if channel == "Combined":
-            mplhep.atlas.text(ax=ax, loc=4, fontsize=18, text="Internal")
+            mplhep.atlas.text(ax=ax, loc=4, fontsize=18, text="")
         else:
-            mplhep.atlas.text(ax=ax, loc=0, fontsize=18, text="Internal")
+            mplhep.atlas.text(ax=ax, loc=0, fontsize=18, text="")
 
         if channel == "1l":
             ax.text(
