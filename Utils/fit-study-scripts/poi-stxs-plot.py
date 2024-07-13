@@ -138,7 +138,7 @@ class CombinedPlotter(Plotter):
     def plot(self):
         "Set up the plot and save it in the requested format."
         fig, axs = plt.subplots(1, 3, figsize=(32, 8), sharey=True)
-        labels = ["Combined", "Single lepton", "Dilepton"]
+        labels = ["Combined", "Single-lepton", "Dilepton"]
         for i in range(3):
             if i == 0:
                 axs[i].text(
@@ -795,7 +795,7 @@ class SeparatePlotter(Plotter):
             ax.text(
                 -0.38,
                 6.43,
-                "Single lepton",
+                "Single-lepton",
                 fontsize=18,
                 style="normal",
             )
