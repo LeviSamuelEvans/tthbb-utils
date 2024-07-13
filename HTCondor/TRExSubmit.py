@@ -48,7 +48,7 @@ import re
 from difflib import get_close_matches
 
 # Used for type deduction in the docs
-from typing import List, Dict, Optional
+from typing import List, Dict, Tuple, Union, Optional
 
 
 class TRExSubmit:
@@ -61,6 +61,7 @@ class TRExSubmit:
         work_dir: str,
         actions: str,
         integrate_everything: bool = False,
+        split_validation: bool = False,
         split_regions: bool = True,
         split_systs: bool = True,
         split_scan: bool = True,
@@ -86,6 +87,9 @@ class TRExSubmit:
             work seamlessly. By default, configs are not stored inside `work_dir` and
             the manually defined paths of the configs are used for replacement files,
             inputs, and outputs, by default False.
+        split_validation : bool, optional
+            Whether to split jobs by validation region for d, w, f, and p actions.
+            By default, no such split is carried out.
         split_regions : bool, optional
             Whether to split supported actions by region (`True`) or not (`False`).
             By default, such actions are split, by default True
@@ -170,6 +174,8 @@ class TRExSubmit:
                 os.path.join(self.config_dir, f) for f in self._query_cached_configs()
             ]
 
+        # It only works to run validation regions separated if we have the `d`, `w`, `f`, and `p` options only
+        self.split_validation = split_validation if set(self.actions) <= set("dwfp") else False
         # It only makes sense to run regions separated if we have the `n` or 'b' action included
         self.split_regions = split_regions if self.actions in ["n", "b"] else False
         # We automatically run systematics together if we run regions together (unless in 'r' mode)
@@ -187,6 +193,8 @@ class TRExSubmit:
         self.granularity = "global"
         if self.split_regions and not self.split_systs:
             self.granularity = "region"
+        elif self.split_validation:
+            self.granularity = "validation"
         elif self.split_regions and self.split_systs:
             self.granularity = "syst"
         elif not self.split_regions and self.split_systs:
@@ -198,7 +206,7 @@ class TRExSubmit:
         self,
         config_list: list,
         dry_run: bool = False,
-        stage_out_results=False,
+        stage_out_results: bool = False,
     ) -> None:
         """Execute the job submission.
 
@@ -339,15 +347,15 @@ class TRExSubmit:
     def _get_config_region_syst_dict(
         self,
         config_list: list,
-    ) -> Dict[str, Dict[str, List[str]]]:
+    ) -> Dict[str, Dict[str, List[Union[Tuple[str, str], str]]]]:
         """Retrieves regions and systematics from multiple TRExFitter configs
         and checks region uniqueness.
 
         The dictionary returned by this function has the following form:
         ```
-            <config1>: {regions: [<region1>, <region2>, ..., <regionN>],
+            <config1>: {regions: [(<region1>, <type1>), ..., (<regionN>, <typeN>)],
                         systs: [<syst1.1>, <syst1.2>, ...]},
-            <config2>: {regions: [<regionN+1>, ...], systs: [<syst2.1,>, ...]},
+            <config2>: {regions: [(<regionN+1>, <typeN+1>), ...], systs: [<syst2.1,>, ...]},
             ...
         ```
 
@@ -361,7 +369,7 @@ class TRExSubmit:
 
         Returns
         -------
-        Dict[str, Dict[str, List[str]]]
+        Dict[str, Dict[str, List[Union[Tuple[str, str], str]]]]
             Dictionary associating regions and systematics to the configs in
             the schema described above.
 
@@ -399,7 +407,7 @@ class TRExSubmit:
         self,
         config: str,
         as_subconfig: bool = False,
-    ) -> List[str]:
+    ) -> List[Dict[str, str]]:
         """Retrieves regions from TRExFitter config
 
         Parameters
@@ -412,19 +420,26 @@ class TRExSubmit:
 
         Returns
         -------
-        List[str]
-            List of regions in config and included configs.
+        List[Tuple[str, str]]
+            List of region names and types in config.
         """
-        tmp_region_list = []
+        tmp_region_tuple_list = []
         sub_config_list = []
 
         with open(config) as conf:
+            search_type = False
             for line in conf:
                 file_match = self._file_regex.search(line)
                 key_match = self._key_regex.search(line)
 
-                if key_match is not None and key_match['key'] == "Region":
-                    tmp_region_list.append(key_match['value'])
+                if key_match is not None and not search_type and key_match['key'] == "Region":
+                    tmp_region_tuple_list.append((key_match['value'], "UNKNOWN"))
+                    search_type = True
+                elif key_match is not None and search_type and key_match['key'] == "Type":
+                    assert key_match['value'] in ["SIGNAL", "CONTROL", "VALIDATION"]
+                    tmp_region_name = tmp_region_tuple_list[-1][0]
+                    tmp_region_tuple_list[-1] = (tmp_region_name, key_match['value'])
+                    search_type = False
                 elif file_match is not None and file_match['key'] == "INCLUDE":
                     sub_config_list.append(
                         os.path.abspath(os.path.join(os.path.dirname(config), file_match['value']))
@@ -447,20 +462,20 @@ class TRExSubmit:
                     tmp_region_list.extend(include_regions)
 
         # Use sets here as regions in nested configs may have common regions
-        region_set = set(tmp_region_list)
+        region_tuple_set = set(tmp_region_tuple_list)
 
         for sub_config in sub_config_list:
-            sub_regions = self._get_region_list(sub_config, as_subconfig=True)
-            region_set.update(sub_regions)
+            sub_region_tuples = self._get_region_list(sub_config, as_subconfig=True)
+            region_tuple_set.update(sub_region_tuples)
 
-        region_list = sorted(list(region_set))
+        region_tuple_list = sorted(list(region_tuple_set))
 
         if not as_subconfig:
             print(f"INFO: Regions found in '{config}' (and its nested configs):")
-            for region in region_list:
-                print(f"       - {region}")
+            for region_name, region_type in region_tuple_list:
+                print(f"       - {region_name:<50s} ({region_type})")
 
-        return region_list
+        return region_tuple_list
 
     def _get_syst_list(
         self,
@@ -769,6 +784,7 @@ class TRExSubmit:
             if (
                 not f.startswith('REPLACEMENTFILE_')
                 and not f.startswith('INCLUDEFILE_')
+                and not f == ".asetup.save"
             )
         ]
 
@@ -1039,6 +1055,9 @@ class TRExSubmit:
         job_filename : str
             Path to the script folder of the output directory.
         """
+        REGION_NAME = 0
+        REGION_TYPE = 1
+
         outlines = []
 
         for config, region_syst_dict in config_region_syst_dict.items():
@@ -1047,7 +1066,8 @@ class TRExSubmit:
             )
 
             if self.split_regions:
-                for region in region_syst_dict["regions"]:
+                for region_info in region_syst_dict["regions"]:
+                    region = region_info[REGION_NAME]
                     if self.split_systs:
                         # Build lists of systematics to be put into each file
                         for bundle_name, syst_bundle in sorted(
@@ -1070,6 +1090,24 @@ class TRExSubmit:
                 lhscan_steps = self._get_lhscan_steps(config)
                 for step in range(1, lhscan_steps + 1):
                     outlines.append(f"{config} {short_config} {step}")
+            elif self.split_validation:
+                # First sort into common SRs and CRs, and per-job VRs
+                sr_cr_list = []
+                vr_list = []
+
+                for region_info in region_syst_dict["regions"]:
+                    if region_info[REGION_TYPE] != "VALIDATION":
+                        sr_cr_list.append(region_info[REGION_NAME])
+                    else:
+                        vr_list.append(region_info[REGION_NAME])
+
+                common_regions = ",".join(sr_cr_list)
+
+                if not vr_list:
+                    outlines.append(f"{config} {short_config} no_VR {common_regions}")
+                else:
+                    for validation_region in vr_list:
+                        outlines.append(f"{config} {short_config} {validation_region} {common_regions},{validation_region}")
             else:
                 outlines.append(f"{config} {short_config}")
 
@@ -1099,11 +1137,14 @@ class TRExSubmit:
         extra_opts = [extra_opts] if isinstance(extra_opts, str) else extra_opts
 
         # Add all options in sequence
-        opts = ["Regions=${region}"] if self.split_regions else []
+        opts = ["Regions=${region}"] if self.split_regions or self.split_validation else []
         opts += (
             ["Systematics=${systs}", "SaveSuffix=_${suffix}"]
             if self.split_systs and self.split_regions
             else []
+        )
+        opts += (
+            ["Job=../results/${shortconfig}/${suffix}"] if self.split_validation else []
         )
         opts += (
             ["Ranking=${systs}"] if self.split_systs and not self.split_regions else []
@@ -1120,14 +1161,19 @@ class TRExSubmit:
             f.write(
                 "config=${1:?Config should be supplied as the first parameter but was not!}\n"
             )
-            if self.split_regions:
+            if self.split_regions or self.split_validation:
                 f.write(
                     "region=${2:?Region should be supplied as the second parameter but was not!}\n"
                 )
-            if self.split_systs and self.split_regions:
+            if self.split_validation or (self.split_systs and self.split_regions):
                 f.write(
                     "suffix=${3:?Suffix should be supplied as the third parameter but was not!}\n"
                 )
+            if self.split_validation:
+                f.write(
+                    "shortconfig=${4:?Short Config should be supplied as the fourth parameter but was not!}\n"
+                )
+            if self.split_systs and self.split_regions:
                 f.write(
                     "systs=${4:?Systematics should be supplied as the fourth parameter but were not!}\n"
                 )
@@ -1144,8 +1190,23 @@ class TRExSubmit:
                 f"cd {self.config_dir}\n"
             )  # Make the relative config paths work for us
             f.write(f"source {trex_setup_path}\n")
+
+            # First Give an overview of all options we have for the job at hand
+            f.write("\n")
+            f.write("echo -e \"\\nOptions:\"\n")
+            f.write("echo \" - Config=${config}\"\n")
+            for option in opts:
+                f.write(f"echo \" - {option}\"\n")
+            f.write("echo -e \"\"\n")
+
+            f.write("\n")
+            if self.split_validation:
+                # Need to generate the results folders here
+                f.write("mkdir -p ../results/${shortconfig}/${suffix}\n")
             # We should now have `trex-fitter` in our PATH, so can simply call it directly
             f.write(f'trex-fitter {actions} ${{config}} "{option_string}"\n')
+            f.write("\n")
+            f.write("echo \"\"\n")
             f.write("pwd\n")
             f.write("ls -l\n")
 
@@ -1285,6 +1346,11 @@ class TRExSubmit:
             "script_args": ["Config", "Region"],
             "log_args": ["ShortConfig", "Region"],
         },
+        "validation": {
+            "job_file": ["Config", "ShortConfig", "Suffix", "Regions"],
+            "script_args": ["Config", "Regions", "Suffix", "ShortConfig"],
+            "log_args": ["ShortConfig", "Suffix"],
+        },
         "syst": {
             "job_file": ["Config", "ShortConfig", "Region", "Suffix", "Systematics"],
             "script_args": ["Config", "Region", "Suffix", "Systematics"],
@@ -1421,6 +1487,12 @@ if __name__ == "__main__":
 
     job_split_procedure = parser.add_mutually_exclusive_group()
     job_split_procedure.add_argument(
+        "--split-vr-jobs",
+        action="store_true",
+        dest="split_vrs",
+        help="Instructs TRExFitter to split the `w`-action per validation region.",
+    )
+    job_split_procedure.add_argument(
         "--single-reg",
         action="store_false",
         dest="split_regions",
@@ -1463,6 +1535,7 @@ if __name__ == "__main__":
         split_regions=args.split_regions,
         split_systs=args.split_nps,
         split_scan=args.split_scan,
+        split_validation=args.split_vrs,
         num_syst_per_job=args.num_nps_per_job,
         extra_opts=args.trex_options,
         run_time=args.run_time,
